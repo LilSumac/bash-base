@@ -1,0 +1,98 @@
+#########################
+## Constants Reference ##
+#########################
+
+color_trans -       Transparent black color.
+color_black -       Black color.
+color_white -       White color.
+color_grey -        Grey/Gray color.
+color_con -         Default console grey color.
+color_darkred -     Dark red color.
+color_red -         Full red color.
+color_darkgreen -   Dark green color.
+color_green -       Full green color.
+color_darkblue -    Dark blue color.
+color_blue -        Full blue color.
+color_beige -       Beige color.
+color_yellow -      Yellow color.
+color_turquoise -   Turquoise color.
+color_cyan -        Cyan color.
+color_purple -      Purple color.
+color_pink -        Pink color.
+
+CORE_EXCLUDED - Table of files that should be excluded of all automatic
+                'core' directory processing.
+  Keys -> File names to exclude.
+  Values -> Boolean to indicate if the file should be excluded or not.
+
+Fmt - Shortened reference to 'Format' or 'string.Format' function.
+
+PREFIXES_CLIENT - Table of file prefixes only to be sent to/downloaded by
+                  clients.
+  Keys -> File prefixes to include.
+  Values -> Boolean to indicate if the file prefix is client-specific or not.
+
+PREFIXES_SERVER - Table of file prefixes only to be downloaded by the server.
+  Keys -> File prefixes to include.
+  Values -> Boolean to indicate if the file prefix is server-specific or not.
+
+PREFIXES_SERVER - Table of file prefixes to be sent to/downloaded by both the
+                  client and server.
+  Keys -> File prefixes to include.
+  Values -> Boolean to indicate if the file prefix is shared or not.
+
+########################
+## Function Reference ##
+########################
+
+-------------------
+-- Global Functions
+--   Functions that do not belong to any library.
+-------------------
+
+Fmt
+  See 'Format' or 'string.Format'.
+
+MsgCon
+  Usage: Prints the formattable string with arguments in the given color to the
+         console. Logs the text if verbose logging is enabled.
+  Arguments: <Color textColor>, <string formatText>, <varargs formatVars>
+
+MsgErr
+  Usage: Prints a formattable string with arguments in the error color to the
+         console, and automatically logs the text to the current error log.
+  Arguments: <string formatText>, <varargs formatVars>
+
+--------------------
+-- Library Functions
+--   Functions specific to a certain bash library.
+--------------------
+
+-- bash.db
+
+bash.db.connect
+  Usage: Connects to an SQL database using the given credentials in
+         config/sv_db.lua.
+
+bash.db.query
+  Usage: Submits an SQL query for the active database to perform, calling a
+         callback function upon completion.
+  Arguments: <string sqlQuery>, <function callbackFunc>
+  Note: The given query can consist of multiple delimited queries. The callback
+        function will be called in the given order for each individual query.
+
+bash.db.escape
+  Usage: Converts a given string to an SQL-safe query.
+  Arguments: <string unsafeQuery>
+
+-- bash.util
+
+bash.util.includeFile
+  Usage: Includes/sends a Lua file for download depending on its prefix.
+  Arguments: <string pathToFile>
+  Note: Paths must be relative to the base /gamemodes/ directory.
+
+bash.util.includeDir
+  Usage: Includes/sends all Lua files for download in a given directory. If the
+         second argument is true, it will recurse into all subdirectories.
+  Arguments: <string pathToDir>, <bool recurseSubDirs>

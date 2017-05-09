@@ -1,9 +1,21 @@
 -- Various utility functions for both the server and client.
 bash.util = bash.util or {};
 
--- bash.util.includeFile
---   Usage: Include/send a file for download depending on its prefix.
---   Arguments: <string filePath>
+function MsgCon(color, text, ...)
+    if type(color) != "table" then return; end
+    text = Format(text, unpack({...})) .. '\n';
+    MsgC(color, text);
+
+    -- if verbose logging enabled, log text
+end
+
+function MsgErr(text, ...)
+    text = Format(text, unpack({...})) .. '\n';
+    MsgC(color_red, text);
+
+    -- log error
+end
+
 function bash.util.includeFile(filePath)
     if !filePath then return; end
 
@@ -20,9 +32,6 @@ function bash.util.includeFile(filePath)
     end
 end
 
--- bash.util.includeDir
---   Usage: Include/send all files in a particular directory.
---   Arguments: <string dirPath>, <bool recurSubDirs>
 function bash.util.includeDir(dirPath, recur)
     if !dirPath then return; end
 
@@ -35,9 +44,10 @@ function bash.util.includeDir(dirPath, recur)
 
     local files, dirs = file.Find(baseDir .. dirPath .. "/*.lua", "LUA");
     for index, file in ipairs(files) do
+        if dirPath == "core" and CORE_EXCLUDED[file] then continue; end
         bash.util.includeFile(dirPath .. "/" .. file);
     end
-    
+
     if recur then
         for index, dir in ipairs(dirs) do
             bash.util.includeDir(dirPath .. "/" .. dir);

@@ -1,4 +1,4 @@
-"bash"
+"bash-base"
 {
 	"base"		"sandbox"
 	"title"		"/bash/"
