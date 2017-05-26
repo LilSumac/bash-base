@@ -3,6 +3,8 @@ bash.util = bash.util or {};
 
 function MsgCon(color, text, ...)
     if type(color) != "table" then return; end
+    if !text then text = ""; end
+
     text = Format(text, unpack({...})) .. '\n';
     MsgC(color, text);
 
@@ -10,10 +12,20 @@ function MsgCon(color, text, ...)
 end
 
 function MsgErr(text, ...)
+    if !text then text = ""; end
+
     text = Format(text, unpack({...})) .. '\n';
     MsgC(color_red, text);
 
     -- log error
+end
+
+function MsgDebug(text, ...)
+    if !bash.config.debugMode then return; end
+    if !text then text = ""; end
+
+    text = Format("[DEBUG] " .. text, unpack({...})) .. '\n';
+    MsgC(color_con, text);
 end
 
 function bash.util.includeFile(filePath)
@@ -30,6 +42,8 @@ function bash.util.includeFile(filePath)
         if SERVER then AddCSLuaFile(filePath); end
         include(filePath);
     end
+
+    MsgDebug()
 end
 
 function bash.util.includeDir(dirPath, recur)

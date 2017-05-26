@@ -85,6 +85,29 @@ bash.db.escape
   Usage: Converts a given string to an SQL-safe query.
   Arguments: <string unsafeQuery>
 
+-- bash.reg
+
+bash.reg.setBaseDir
+  Usage: Sets the base directory in the /data/ folder to which all persistent
+         data will be saved to.
+  Arguments: <string baseDir>
+
+bash.reg.set
+  Usage: Sets the value of a persistent variable mapped to a certain key. These
+         variables are stored in separate text files and encoded/decoded with
+         pON.
+  Arguments: <string key>, <string value>, <bool isGlobalVar>, <bool isNotMapSpecific>
+
+bash.reg.get
+  Usage: Returns the value of a persistence variable mapped to a certain key, if
+         it exists. Otherwise, it will return the default value given.
+  Arguments: <string key>, <string default>, <bool isGlobalVar>, <bool isNotMapSpecific>, <bool shouldRefresh>
+  Returns: <vararg value>
+
+bash.reg.delete
+  Usage: Deletes an existing persistence variable from the registry.
+  Arguments: <string key>, <bool isGlobalVar>, <bool isNotMapSpecific>
+
 -- bash.util
 
 bash.util.includeFile

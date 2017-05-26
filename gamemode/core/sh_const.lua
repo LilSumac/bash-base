@@ -1,3 +1,4 @@
+-- Global constants. See Documentation for more info.
 color_trans =       Color(0, 0, 0, 0);
 color_black =       Color(0, 0, 0, 255);
 color_white =       Color(255, 255, 255, 255);
@@ -34,3 +35,7 @@ PREFIXES_SHARED = {
     ["obj_"] =  true,
     [string.Explode('_', game.GetMap())[1] .. "_"] = true
 };
+
+SRC_SQL = 1;
+SRC_CACHE = 2;
+SRC_MAN = 3;
