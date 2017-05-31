@@ -4,6 +4,7 @@ bash.reg.vars = bash.reg.vars or {};
 bash.reg.entries = bash.reg.entries or {};
 bash.reg.entries.globals = bash.reg.entries.globals or {};
 bash.reg.queue = bash.reg.queue or Queue:Create();
+bash.reg.queuePlace = bash.reg.queuePlace or 0;
 bash.reg.lastFinish = bash.reg.lastFinish or nil;
 
 function bash.reg.addVar(varTab)
@@ -19,8 +20,9 @@ function bash.reg.addVar(varTab)
     varTab.IsPublic = varTab.IsPublic or false;
     varTab.IsGlobal = varTab.IsGlobal or false;
     varTab.Source = varTab.Source or SRC_MAN;
-    varTab.SourceTable = (varTab.Source == SRC_SQL and (varTab.SourceTable or "bash_players")) or nil;
-    varTab.SourceKey = (varTab.Source = SRC_CACHE and varTab.SourceKey) or nil;
+    varTab.SourceTable = (varTab.Source == SRC_SQL and (varTab.SourceTable or "bash_plys")) or nil;
+    varTab.Query = (varTab.Source == SRC_SQL and (varTab.Query or SQL_TYPE[varTab.Type])) or nil;
+    varTab.SourceKey = (varTab.Source == SRC_CACHE and varTab.SourceKey) or nil;
     varTab.IsMapSpecific = (varTab.Source == SRC_CACHE and (varTab.IsMapSpecific or false)) or nil;
     varTab.IgnoreSchema = (varTab.Source == SRC_CACHE and (varTab.IgnoreSchema or false)) or nil;
 
@@ -28,6 +30,7 @@ function bash.reg.addVar(varTab)
 end
 
 -- Metatables.
+local Entity = FindMetaTable("Entity");
 local Player = FindMetaTable("Player");
 
 function getGlobal(key)
@@ -36,14 +39,14 @@ function getGlobal(key)
     return bash.reg.entries.globals[key] or var.Default;
 end
 
-function Player:GetNetVar(key)
+function Entity:GetNetVar(key)
     local var = bash.reg.vars[key];
-    if !var or var.IsGlobal then return; end
+    if var and var.IsGlobal then return; end
     if !bash.reg.entries[self:EntIndex()] then
         MsgErr("[Entity.GetNetVar] -> This entity is not in the registry! (%s)", tostring(self));
         return;
     end
-    return bash.reg.entries[self:EntIndex()][key] or var.Default;
+    return bash.reg.entries[self:EntIndex()][key] or (var and var.Default);
 end
 
 if SERVER then
@@ -100,13 +103,15 @@ if SERVER then
         update:Broadcast();
     end
 
-    function Player:SetNetVar(key, val)
+    function Entity:SetNetVar(key, val)
         if val == nil then return; end
-        local var = bash.reg.vars[key];
-        if !var or var.IsGlobal then return; end
-        if type(val) != var.Type then return; end
-        if checkBadType(key, val) then return; end
         if self:GetNetVar(key) == val then return; end
+        local var = bash.reg.vars[key];
+        if var then
+            if var.IsGlobal then return; end
+            if type(val) != var.Type then return; end
+        end
+        if checkBadType(key, val) then return; end
 
         local id = self:EntIndex();
         bash.reg.entries[id] = bash.reg.entries[id] or {};
@@ -118,7 +123,7 @@ if SERVER then
         send[id][key] = val;
         update:Int(id);
         update:Table(send);
-        if var.IsPublic then
+        if !var or var.IsPublic then
             update:Broadcast();
         else
             update:AddTargets(self);
@@ -153,7 +158,8 @@ if SERVER then
         update:Send();
     end
 
-    function Player:Register()
+    function Player:Register(data)
+        data = data or {};
         MsgCon(color_green, "Registering player %s...", self:Name());
 
         local id = self:EntIndex();
@@ -161,6 +167,11 @@ if SERVER then
         local peek = bash.reg.queue:First();
         if !peek then
             bash.reg.queue:Enqueue(id);
+
+            local update = vnet.CreatePacket("reg_queued");
+            update:Table({[id] = 1});
+            update:AddTargets(self);
+            update:Send();
         elseif peek and peek != id then
             bash.reg.queue:Enqueue(id);
             return;
@@ -178,12 +189,8 @@ if SERVER then
         local val;
         for key, var in pairs(bash.reg.vars) do
             if var.IsGlobal then continue end;
-            if var.Source == SRC_SQL then
-                val = self.SQLData[var.SourceTable][key] or var.Default;
-            elseif var.Source == SRC_MAN then
-                val = var.Default;
-            else continue; end
 
+            val = data[key] or var.Default;
             bash.reg.entries[id][key] = val;
             sendSelf[id][key] = val;
             if var.IsPublic then send[id][key] = val; end
@@ -203,10 +210,14 @@ if SERVER then
         update:Table(send);
         update:AddTargets(except);
         update:Send();
+
+        bash.reg.lastFinish = id;
+        PrintTable(bash.reg.entries);
     end
 
-    function Player:Deregister()
+    function Entity:Deregister()
         local id = self:EntIndex();
+        if id == -1 or !bash.reg.entries[id] then return; end
         bash.reg.entries[id] = nil;
 
         local update = vnet.CreatePacket("reg_delete");
@@ -221,20 +232,50 @@ if SERVER then
         if bash.reg.lastFinish == bash.reg.queue:First() then
             -- Get rid of the finished player.
             bash.reg.queue:Dequeue();
+            if bash.reg.queue:Len() == 0 then return; end
 
-            local nextPly = bash.reg.queue:Dequeue();
-            
+            local nextID = bash.reg.queue:Dequeue();
+            local nextPly = ents.GetByIndex(nextID);
+            if bash.reg.queue:Len() >= 1 then
+                local update = vnet.CreatePacket("reg_queued");
+
+                local recip, places, ply = {}, {}, nil;
+                for index, id in pairs(bash.reg.queue:Elem()) do
+                    ply = ents.GetByIndex(id);
+                    if checkply(ply) then
+                        recip[#recip + 1] = ply;
+                        places[id] = index;
+                    end
+                end
+
+                update:Table(places);
+                update:AddTargets(recip);
+                update:Send();
+            end
         end
     end);
 
-    -- Deregister a player when disconnecting.
-    hook.Add("PlayerDisconnected", "reg_cleanup", function(ply)
-        if checkply(ply) then
-            ply:Deregister();
+    -- Deregister an entity when removed.
+    hook.Add("EntityRemoved", "reg_cleanup", function(ent)
+        ent:Deregister();
+    end);
+
+    -- Push all SQL-sourced variables to the SQL table structure.
+    hook.Add("EditSQLTables", "reg_sqlpush", function()
+        for key, var in pairs(bash.reg.vars) do
+            if var.Source == SRC_SQL then
+                bash.sql.addColumn(var.SourceTable, key, var.Query, true);
+            end
         end
     end);
 
 elseif CLIENT then
+
+    vnet.Watch("reg_queued", function(pck)
+        local data = pck.Data;
+        local id = LocalPlayer():EntIndex();
+        bash.reg.queuePlace = data[id] or 0;
+    end);
 
     vnet.Watch("reg_update", function(pck)
         local data = pck.Data;
@@ -252,3 +293,54 @@ elseif CLIENT then
     end);
 
 end
+
+-- Add all default registry variables!
+hook.Add("AddRegistryVariables", "reg_defaultvars", function()
+    bash.reg.addVar{
+        ID = "FirstLogin",
+        Type = "number",
+        Default = 0,
+        IsPublic = true,
+        Source = SRC_SQL
+    };
+
+    bash.reg.addVar{
+        ID = "NewPlayer",
+        Type = "boolean",
+        Default = 0,
+        IsPublic = true,
+        Source = SRC_SQL
+    };
+
+    bash.reg.addVar{
+        ID = "CharData",
+        Type = "string",
+        Default = {}
+    };
+
+    bash.reg.addVar{
+        ID = "CharName",
+        Type = "string",
+        Default = "",
+        IsPublic = true
+    };
+
+    bash.reg.addVar{
+        ID = "Desc",
+        Type = "string",
+        Default = "",
+        IsPublic = true
+    };
+
+    bash.reg.addVar{
+        ID = "BaseModel",
+        Type = "string",
+        Default = ""
+    };
+
+    bash.reg.addVar{
+        ID = "Invs",
+        Type = "string",
+        Default = ""
+    };
+end);

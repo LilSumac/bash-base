@@ -1,3 +1,4 @@
+-- Cache for global variables stored server-side.
 bash.cache = bash.cache or {};
 bash.cache.stored = bash.cache.stored or {};
 
@@ -16,7 +17,7 @@ function bash.cache.set(key, val, global, ignoreMap)
     bash.cache.stored[key] = value;
 end
 
-function bash.cache.get(key, default, global, ignoreMap, refresh)
+function bash.cache.get(key, global, ignoreMap, refresh)
     if !refresh then
         if bash.cache.stored[key] != nil then
             return bash.cache.stored[key];
@@ -30,14 +31,8 @@ function bash.cache.get(key, default, global, ignoreMap, refresh)
         if status and decoded then
             if decoded[1] != nil then
                 return decoded[1];
-            else
-                return default;
             end
-        else
-            return default;
         end
-    else
-        return default;
     end
 end
 

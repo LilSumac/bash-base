@@ -50,23 +50,61 @@ PREFIXES_SERVER - Table of file prefixes to be sent to/downloaded by both the
 --   Functions that do not belong to any library.
 -------------------
 
+checkply
+  Usage: Checks to see if a given entity is both valid and a player.
+  Arguments: <Entity ent>
+
 Fmt
   See 'Format' or 'string.Format'.
+
+getGlobal
+  Usage: Get the value of a global variable mapped to the given key from the
+         registry.
+  Arguments: <string key>
 
 MsgCon
   Usage: Prints the formattable string with arguments in the given color to the
          console. Logs the text if verbose logging is enabled.
   Arguments: <Color textColor>, <string formatText>, <varargs formatVars>
 
+MsgDebug
+  Usage: Prints the formattable string with arguments in the debug colors to the
+         console. The output is not logged, as this function is for debugging
+         purposes only.
+  Arguments: <string formatText>, <varargs formatVars>
+
 MsgErr
-  Usage: Prints a formattable string with arguments in the error color to the
+  Usage: Prints the formattable string with arguments in the error color to the
          console, and automatically logs the text to the current error log.
   Arguments: <string formatText>, <varargs formatVars>
+
+setGlobal
+  Usage: Sets the value of a global value mapped to the given key in the
+         registry.
+  Arguments: <string key>, <vararg value>
 
 --------------------
 -- Library Functions
 --   Functions specific to a certain bash library.
 --------------------
+
+-- bash.cache
+
+bash.cache.set
+  Usage: Sets the value of a persistent variable mapped to a certain key. These
+         variables are stored in separate text files and encoded/decoded with
+         pON.
+  Arguments: <string key>, <string value>, <bool isGlobalVar>, <bool doesIgnoreMap>
+
+bash.cache.get
+  Usage: Returns the value of a persistence variable mapped to a certain key, if
+         it exists.
+  Arguments: <string key>, <bool isGlobalVar>, <bool doesIgnoreMap>, <bool shouldRefresh>
+  Returns: <vararg value>
+
+bash.cache.delete
+  Usage: Deletes an existing persistence variable from the registry.
+  Arguments: <string key>, <bool isGlobalVar>, <bool doesIgnoreMap>
 
 -- bash.db
 
@@ -84,29 +122,6 @@ bash.db.query
 bash.db.escape
   Usage: Converts a given string to an SQL-safe query.
   Arguments: <string unsafeQuery>
-
--- bash.reg
-
-bash.reg.setBaseDir
-  Usage: Sets the base directory in the /data/ folder to which all persistent
-         data will be saved to.
-  Arguments: <string baseDir>
-
-bash.reg.set
-  Usage: Sets the value of a persistent variable mapped to a certain key. These
-         variables are stored in separate text files and encoded/decoded with
-         pON.
-  Arguments: <string key>, <string value>, <bool isGlobalVar>, <bool isNotMapSpecific>
-
-bash.reg.get
-  Usage: Returns the value of a persistence variable mapped to a certain key, if
-         it exists. Otherwise, it will return the default value given.
-  Arguments: <string key>, <string default>, <bool isGlobalVar>, <bool isNotMapSpecific>, <bool shouldRefresh>
-  Returns: <vararg value>
-
-bash.reg.delete
-  Usage: Deletes an existing persistence variable from the registry.
-  Arguments: <string key>, <bool isGlobalVar>, <bool isNotMapSpecific>
 
 -- bash.util
 

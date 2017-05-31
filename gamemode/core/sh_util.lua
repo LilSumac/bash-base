@@ -1,5 +1,6 @@
 -- Various utility functions for both the server and client.
 bash.util = bash.util or {};
+local table = table;
 
 function MsgCon(color, text, ...)
     if type(color) != "table" then return; end
@@ -28,6 +29,16 @@ function MsgDebug(text, ...)
     MsgC(color_con, text);
 end
 
+function checkply(ent)
+    return IsValid(ent) and ent:IsPlayer();
+end
+
+function table.IsEmpty(tab)
+    if !tab or type(tab) != "table" then return true; end
+    for _, __ in pairs(tab) do return false; end
+    return true;
+end
+
 function bash.util.includeFile(filePath)
     if !filePath then return; end
 
@@ -43,13 +54,13 @@ function bash.util.includeFile(filePath)
         include(filePath);
     end
 
-    MsgDebug()
+    MsgDebug("Processed file '%s'", fileName);
 end
 
 function bash.util.includeDir(dirPath, recur)
     if !dirPath then return; end
 
-    local baseDir = "bash";
+    local baseDir = "bash-base";
     if SCHEMA and SCHEMA.Folder and SCHEMA.IsLoading then
         baseDir = SCHEMA.Folder .. "/schema/";
     else
@@ -61,6 +72,8 @@ function bash.util.includeDir(dirPath, recur)
         if dirPath == "core" and CORE_EXCLUDED[file] then continue; end
         bash.util.includeFile(dirPath .. "/" .. file);
     end
+
+    MsgDebug("Processed directory '%s'", dirPath);
 
     if recur then
         for index, dir in ipairs(dirs) do

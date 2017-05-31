@@ -39,7 +39,7 @@ function Queue.meta:Dequeue(num)
     return unpack(entries);
 end
 
-function Queue.meta:Elements()
+function Queue.meta:Elem()
     return self.Entries;
 end
 

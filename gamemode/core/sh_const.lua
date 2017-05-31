@@ -25,16 +25,26 @@ CORE_EXCLUDED = {
 Fmt = Format;
 
 PREFIXES_CLIENT = {
-    ["cl_"] =   true,
-    ["vgui_"] = true
+    ["cl"] =   true,
+    ["vgui"] = true
 };
-PREFIXES_SERVER = {["sv_"] = true};
+PREFIXES_SERVER = {["sv"] = true};
 PREFIXES_SHARED = {
-    ["sh_"] =   true,
-    ["item_"] = true,
-    ["obj_"] =  true,
-    [string.Explode('_', game.GetMap())[1] .. "_"] = true
+    ["sh"] =   true,
+    ["item"] = true,
+    ["obj"] =  true,
+    [string.Explode('_', game.GetMap())[1]] = true
 };
+
+REF_NONE = 0;
+REF_PLY = 1;
+REF_CHAR = 2;
+
+SQL_TYPE = {};
+SQL_TYPE["boolean"] = "TINYINT(1) UNSIGNED NOT NULL DEFAULT 0";
+SQL_TYPE["number"] = "INT(10) UNSIGNED NOT NULL DEFAULT 0";
+SQL_TYPE["string"] = "TEXT NOT NULL DEFAULT \'\'";
+SQL_TYPE["table"] = SQL_TYPE["string"];
 
 SRC_SQL = 1;
 SRC_CACHE = 2;
