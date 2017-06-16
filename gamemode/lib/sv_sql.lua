@@ -3,6 +3,7 @@ bash.sql = bash.sql or {};
 bash.sql.obj = bash.sql.obj or nil;
 bash.sql.connected = bash.sql.connected or false;
 bash.sql.tables = bash.sql.tables or {};
+local color_sql = Color(0, 151, 151, 255);
 
 -- tmysql4 is the required SQL module.
 if !tmysql then
@@ -13,9 +14,6 @@ if !tmysql then
         MsgCon(color_sql, "tmysql4 module loaded.");
     end
 end
-
--- Include neccessary sql credenials.
-bash.util.includeFile("bash-base/gamemode/config/sv_sql.lua");
 
 function bash.sql.addTable(tab)
     if !tab or !tab.Name then return; end
@@ -59,6 +57,13 @@ function bash.sql.addColumn(tabName, colName, col, override)
     end
 
     bash.sql.tables[tabName].Struct[colName] = col;
+end
+
+-- Local function for dropping the table structures (on refresh).
+local function dropTables()
+    if bash.sql.tables == {} then return; end
+    MsgDebug("Dropping SQL table structures...");
+    bash.sql.tables = {};
 end
 
 -- Local function to report query errors.
@@ -127,7 +132,7 @@ local function columnCheck()
 
             for colName, col in pairs(tab) do
                 _query = _query .. Fmt(
-                    "ALTER TABLE %s ADD %s %s %s; ", name, colName, col, (bash.sql.tables[name].Key == colName and "PRIMARY KEY" or "")
+                    "ALTER TABLE %s ADD %s %s%s; ", name, colName, col, (bash.sql.tables[name].Key == colName and " PRIMARY KEY" or "")
                 );
             end
         end
@@ -152,7 +157,7 @@ local function tableCheck()
         for colName, col in pairs(tab.Struct) do
             query = query .. Fmt("`%s` %s, ", colName, col);
         end
-        query = query .. Fmt("PRIMARY KEY(`%s`)); ", tab.Key);
+        query = query .. Fmt("PRIMARY KEY(%s)); ", tab.Key);
     end
 
     bash.sql.query(query, function(results)
@@ -203,19 +208,19 @@ function bash.sql.connect()
         }
     };
 
-    -- Gather all external structures too!
-    hook.Call("AddSQLTables");
-    hook.Call("EditSQLTables");
-
     -- Gather all external registry variables so we can add them to the table
     -- structures!
     hook.Call("AddRegistryVariables");
+
+    -- Gather all external structures too!
+    hook.Call("AddSQLTables");
+    hook.Call("EditSQLTables");
 
     -- Now that we have all the info of our DB, we connect.
     local obj, err = tmysql.initialize(
         bash.sql.hostname, bash.sql.username,
         bash.sql.password, bash.sql.database,
-        bash.sql.port
+        bash.sql.port, nil, CLIENT_MULTI_STATEMENTS
     );
 
     if obj then
@@ -230,14 +235,141 @@ function bash.sql.connect()
     end
 end
 
+function bash.sql.disconnect()
+    if !bash.sql.connected or !bash.sql.obj then return; end
+
+    MsgCon(color_sql, "Disconnecting from database!");
+    bash.sql.obj:Disconnect();
+end
+
 function bash.sql.tableCleanup()
     if !bash.sql.connected then return; end
 
-
+    -- finish later
 end
 
 function bash.sql.columnCleanup()
     if !bash.sql.connected then return; end
 
-
+    -- finish later
 end
+
+function bash.sql.playerInit(ply)
+    if !bash.sql.connected then return; end
+    if !checkply(ply) then return; end
+
+    bash.reg.sendProgress(ply, "Starting up...");
+
+    local id = ply:EntIndex();
+    bash.reg.queue = bash.reg.queue or Queue:Create();
+    local peek = bash.reg.queue:First();
+    if !peek then
+        bash.reg.queue:Enqueue(id);
+
+        local update = vnet.CreatePacket("reg_queued");
+        update:Table({[id] = 1});
+        update:AddTargets(ply);
+        update:Send();
+    elseif peek and peek != id then
+        bash.reg.queue:Enqueue(id);
+        return;
+    end
+
+    local _ply = ply;
+    local name, steamID = ply:Name(), ply:SteamID();
+    local query = Fmt("SELECT * FROM bash_plys WHERE SteamID = \'%s\';", steamID);
+    bash.sql.query(query, function(results)
+        results = results[1];
+        if table.IsEmpty(results.data) then
+            MsgDebug("No row found for player '%s', creating a new one...", name);
+            bash.sql.createPlyData(_ply);
+        else
+            MsgDebug("Row found for player '%s'.", name);
+            _ply.SQLData = _ply.SQLData or {};
+            _ply.SQLData["bash_plys"] = results.data[1];
+
+            -- Update IPs!
+            local ips = _ply.SQLData["bash_plys"]["Addresses"];
+            ips = pon.decode(ips);
+            ips[_ply:IPAddress()] = true;
+            ips = pon.encode(ips);
+
+            hook.Call("PostPlyData", nil, _ply);
+            bash.sql.getCharData(_ply);
+        end
+    end);
+end
+
+function bash.sql.createPlyData(ply)
+    if !bash.sql.connected then return; end
+    if !checkply(ply) then return; end
+
+    bash.reg.sendProgress(ply, "Creating your own row...");
+
+    local name, steamID = ply:Name(), ply:SteamID();
+    local vars = {};
+    local vals = {};
+    for key, var in pairs(bash.reg.vars) do
+        if var.SourceTable == "bash_plys" then
+            vars[#vars + 1] = key;
+            vals[#vals + 1] = var:GetDefault(ply);
+        end
+    end
+
+    local query = "INSERT INTO bash_plys(Name, SteamID";
+    for index, var in ipairs(vars) do
+        query = query .. ", " .. var;
+    end
+    query = query .. Fmt(") VALUES(\'%s\', \'%s\'", bash.sql.escape(name), steamID);
+    for index, val in ipairs(vals) do
+        if type(val) == "string" then
+            query = query .. Fmt(", \'%s\'", bash.sql.escape(val));
+        elseif type(val) == "table" then
+            query = query .. Fmt(", \'%s\'", bash.sql.escape(pon.encode(val)));
+        else
+            query = query .. ", " .. tostring(val);
+        end
+    end
+    query = query .. ");";
+
+    hook.Call("CreatePlyData", nil, ply);
+
+    local _ply = ply;
+    bash.sql.query(query, function(results)
+        _ply.SQLData = _ply.SQLData or {};
+        _ply.SQLData["bash_plys"] = _ply.SQLData["bash_plys"] or {};
+        for index = 1, #vars do
+            _ply.SQLData["bash_plys"][vars[index]] = vals[index];
+        end
+
+        hook.Call("PostPlyData", nil, _ply);
+        bash.sql.getCharData(_ply);
+    end);
+end
+
+function bash.sql.getCharData(ply)
+    if !bash.sql.connected then return; end
+    if !checkply(ply) then return; end
+
+    bash.reg.sendProgress(ply, "Gathering existing data...");
+
+    local name, steamID = ply:Name(), ply:SteamID();
+    MsgDebug("Gathering existing data for %s (%s)...", name, steamID);
+    local query = Fmt("SELECT * FROM bash_chars WHERE SteamID = \'%s\';", steamID);
+    local _ply = ply;
+    bash.sql.query(query, function(results)
+        results = results[1];
+        local chars = {};
+        for index, char in ipairs(results.data) do
+            chars[#chars + 1] = char;
+        end
+
+        _ply.SQLData["bash_chars"] = chars;
+        hook.Call("GetCharData", nil, _ply);
+        _ply:Register();
+    end);
+end
+
+-- For server refreshes.
+dropTables();
+bash.sql.disconnect();

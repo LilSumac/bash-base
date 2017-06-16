@@ -36,16 +36,38 @@ PREFIXES_SHARED = {
     [string.Explode('_', game.GetMap())[1]] = true
 };
 
-REF_NONE = 0;
-REF_PLY = 1;
-REF_CHAR = 2;
-
-SQL_TYPE = {};
-SQL_TYPE["boolean"] = "TINYINT(1) UNSIGNED NOT NULL DEFAULT 0";
-SQL_TYPE["number"] = "INT(10) UNSIGNED NOT NULL DEFAULT 0";
-SQL_TYPE["string"] = "TEXT NOT NULL DEFAULT \'\'";
-SQL_TYPE["table"] = SQL_TYPE["string"];
-
 SRC_SQL = 1;
 SRC_CACHE = 2;
 SRC_MAN = 3;
+
+STATUS_CONN = 0;
+STATUS_LAND = 1;
+STATUS_ACTIVE = 2;
+
+if SERVER then
+
+    REF_NONE = 0;
+    REF_PLY = 1;
+    REF_CHAR = 2;
+
+    SQL_TYPE = {};
+    SQL_TYPE["boolean"] = "TINYINT(1) UNSIGNED NOT NULL DEFAULT 0";
+    SQL_TYPE["number"] = "INT(10) UNSIGNED NOT NULL DEFAULT 0";
+    SQL_TYPE["string"] = "TEXT NOT NULL";
+    SQL_TYPE["table"] = SQL_TYPE["string"];
+
+elseif CLIENT then
+
+	CENTER_X = ScrW() / 2;
+	CENTER_Y = ScrH() / 2;
+
+    SCRW = ScrW();
+	SCRH = ScrH();
+
+    TEXT_LEFT = 0;
+    TEXT_CENT = 1;
+    TEXT_RIGHT = 2;
+    TEXT_TOP = 3;
+    TEXT_BOT = 4;
+
+end

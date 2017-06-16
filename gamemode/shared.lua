@@ -5,7 +5,6 @@ GM.Author = "LilSumac";
 bash.util.includeDir("config");
 bash.util.includeDir("external");
 bash.util.includeDir("obj");
+bash.util.includeDir("hooks");
 bash.util.includeDir("lib");
-
--- Entry point for the SQL DB.
-bash.sql.connect();
+bash.util.includeDir("vgui");
