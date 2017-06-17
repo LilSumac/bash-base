@@ -184,7 +184,7 @@ function bash.sql.connect()
         MsgErr(err);
         return;
     end
-	
+
     -- Create default table structure!
     bash.sql.addTable{
         Name = "bash_plys",
@@ -192,7 +192,7 @@ function bash.sql.connect()
         Columns = {
             ["Name"] = SQL_TYPE["string"]
         }
-    }; 
+    };
 
     bash.sql.addTable{
         Name = "bash_chars",
@@ -225,11 +225,11 @@ function bash.sql.connect()
             ["BanReason"] = SQL_TYPE["string"]
         }
     };
-	
+
 	-- Gather all external structures!
     hook.Call("AddSQLTables");
     hook.Call("EditSQLTables");
-	
+
 	-- Finally, check the database structure.
 	tableCheck();
 end
@@ -368,6 +368,23 @@ function bash.sql.getCharData(ply)
         hook.Call("GetCharData", nil, _ply);
         _ply:Register();
     end);
+end
+
+-- Player metatable.
+local Player = FindMetaTable("Player");
+function Player:GetSQLData(table, index, field)
+    if !table or !bash.sql.tables[table] then return; end
+    self.SQLData = self.SQLData or {};
+
+    if !field then
+        if !index then -- Asking for an entire table.
+            return self.SQLData[table];
+        else -- 'index' is really a field.
+            return (self.SQLData[table] != nil and self.SQLData[table][index]) or nil;
+        end
+    else
+        return (self.SQLData[table] != nil and self.SQLData[table][index] and self.SQLData[table][index][field]) or nil;
+    end
 end
 
 do -- For server refreshes.

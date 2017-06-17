@@ -13,26 +13,34 @@ function bash.reg.addVar(varTab)
         MsgErr("[bash.reg.addVar] -> A variable with the ID '%s' already exists.", varTab.ID);
         return;
     end
-	
+
 	-- General variable information.
     varTab.ID = varTab.ID;
     varTab.Type = varTab.Type or "string";
     varTab.Default = varTab.Default or "";
     varTab.IsPublic = varTab.IsPublic or false;
     varTab.IsGlobal = varTab.IsGlobal or false;
-	
+
 	-- Variable source information.
     varTab.Source = varTab.Source or SRC_MAN;
     varTab.SourceTable = (varTab.Source == SRC_SQL and (varTab.SourceTable or "bash_plys")) or nil;
+    varTab.SourceColumn = (varTab.Source == SRC_SQL and varTab.SourceColumn) or nil;
     varTab.ColumnQuery = (varTab.Source == SRC_SQL and (varTab.ColumnQuery or SQL_TYPE[varTab.Type])) or nil;
     varTab.SourceKey = (varTab.Source == SRC_CACHE and varTab.SourceKey) or nil;
     varTab.IsMapSpecific = (varTab.Source == SRC_CACHE and (varTab.IsMapSpecific or false)) or nil;
     varTab.IsSchemaSpecific = (varTab.Source == SRC_CACHE and (varTab.IsSchemaSpecific or false)) or nil;
-	
+
 	-- Variable hooks.
-	varTab.OnRegister = varTab.OnRegister or function(ply, def) return def; end
-	varTab.OnGet = varTab.OnGet; -- function(val, def, ent)
-	varTab.OnSet = varTab.OnSet; -- function(val, def, ent)
+    if !varTab.IsGlobal then
+        varTab.OnGenerate = varTab.OnGenerate; -- function(_self, ply, def)
+        varTab.OnRegister = varTab.OnRegister or function(_self, ply, def)
+            if _self.Source == SRC_SQL then
+                return ply:GetSQLData(_self.SourceTable, _self.ID);
+            else return def; end
+        end
+    end
+	varTab.OnGet = varTab.OnGet; -- function(_self, val, def, ent)
+	varTab.OnSet = varTab.OnSet; -- function(_self, val, def, ent)
 
     bash.reg.vars[varTab.ID] = varTab;
 end
@@ -52,7 +60,7 @@ function getGlobal(key)
     local var = bash.reg.vars[key];
     if !var or !var.IsGlobal then return; end
 	if var.OnGet then
-		return var.OnGet(bash.reg.entries.globals[key], var.Default);
+		return var:OnGet(bash.reg.entries.globals[key], var.Default);
 	else
 		return bash.reg.entries.globals[key] or var.Default;
 	end
@@ -66,9 +74,9 @@ function Entity:GetNetVar(key)
         MsgErr("[Entity.GetNetVar] -> This entity is not in the registry! (%s)", tostring(self));
         return;
     end
-	
+
 	if var and var.OnGet then
-		return var.OnGet(bash.reg.entries[id][key], var.Default, self);
+		return var:OnGet(bash.reg.entries[id][key], var.Default, self);
 	else
 		return bash.reg.entries[id][key] or var.Default;
 	end
@@ -178,9 +186,9 @@ if SERVER then
         if type(val) != var.Type then return; end
         if checkBadType(key, val) then return; end
         if getGlobal(key) == val then return; end
-		
+
 		if var.OnSet then
-			bash.reg.entries.globals[key] = var.OnSet(val, var.Default);
+			bash.reg.entries.globals[key] = var:OnSet(val, var.Default);
 		else
 			bash.reg.entries.globals[key] = val;
 		end
@@ -206,7 +214,7 @@ if SERVER then
         local id = self:EntIndex();
         bash.reg.entries[id] = bash.reg.entries[id] or {};
 		if var and var.OnSet then
-			bash.reg.entries[id][key] = var.OnSet(val, var.Default, self);
+			bash.reg.entries[id][key] = var:OnSet(val, var.Default, self);
 			val = bash.reg.entries[id][key];
 		else
 			bash.reg.entries[id][key] = val;
@@ -257,7 +265,7 @@ if SERVER then
             MsgDebug("Updated '%s' for player %s.", key, name);
         end);
     end
-	
+
 	-- SQL updating is NOT supported with this function! Use SetNetVar for that purpose.
     function Entity:SetNetVars(data)
         local id = self:EntIndex();
@@ -278,7 +286,7 @@ if SERVER then
 
             bash.reg.entries[id] = bash.reg.entries[id] or {};
 			if var and var.OnSet then
-				bash.reg.entries[id][key] = var.OnSet(val, var.Default, self);
+				bash.reg.entries[id][key] = var:OnSet(val, var.Default, self);
 				val = bash.reg.entries[id][key];
 			else
 				bash.reg.entries[id][key] = val;
@@ -354,8 +362,12 @@ if SERVER then
         for key, var in pairs(bash.reg.vars) do
             -- Global variables are not bound to players.
             if var.IsGlobal then continue; end
-			
-			val = var.OnRegister(self, var.Default);
+
+            if var.OnRegister then
+    			val = var:OnRegister(self, var.Default);
+            else
+                val = var.Default;
+            end
 
             -- Decode tables!
             if var.Type == "table" and type(val) == "string" then
@@ -445,7 +457,7 @@ if SERVER then
     hook.Add("EditSQLTables", "reg_sqlpush", function()
         for key, var in pairs(bash.reg.vars) do
             if var.Source == SRC_SQL then
-                bash.sql.addColumn(var.SourceTable, key, var.ColumnQuery, true);
+                bash.sql.addColumn(var.SourceTable, (var.SourceColumn or key), var.ColumnQuery, true);
             end
         end
     end);
@@ -478,19 +490,28 @@ end
 
 do -- For server refreshes.
 	dropVars();
-	
+
 	-- Add all default registry variables!
+    bash.reg.addVar{
+        ID = "Status",
+        Type = "number",
+        Default = STATUS_CONN,
+        IsPublic = true
+    };
+
     bash.reg.addVar{
         ID = "Addresses",
         Type = "table",
         Default = EMPTY_TAB,
-		OnInitial = function(val, default, ply)
-		
-		end,
-		OnGet = function(
-        GetDefault = function(self, ply) return (checkply(ply) and {[ply:IPAddress()] = true}) or self.Default; end,
         Source = SRC_SQL,
-        SourceTable = "bash_plys"
+        SourceTable = "bash_plys",
+        OnGenerate = function(_self, ply, def)
+            if checkply(ply) then
+                local ip = ply:IPAddress();
+                ip = string.Explode(':', ip)[1];
+                return {[ip] = true};
+            else return {}; end
+        end
     };
 
     bash.reg.addVar{
@@ -499,7 +520,10 @@ do -- For server refreshes.
         GetDefault = function() return os.time(); end,
         IsPublic = true,
         Source = SRC_SQL,
-        SourceTable = "bash_plys"
+        SourceTable = "bash_plys",
+        OnGenerate = function(_self, ply, def)
+            return os.time();
+        end
     };
 
     bash.reg.addVar{
@@ -511,6 +535,18 @@ do -- For server refreshes.
         SourceTable = "bash_plys"
     };
 
+    bash.reg.addVar{
+        ID = "CharData",
+        Type = "string",
+        Default = pon.encode({}),
+        OnRegister = function(_self, ply, def)
+            if checkply(ply) then
+                return ply:GetSQLData("bash_chars");
+            else return def; end
+        end
+    };
+
+    --[[
     bash.reg.addVar{
         ID = "CharName",
         Type = "string",
@@ -546,24 +582,9 @@ do -- For server refreshes.
     };
 
     bash.reg.addVar{
-        ID = "Status",
-        Type = "number",
-        Default = STATUS_CONN,
-        IsPublic = true
-    };
-
-    bash.reg.addVar{
         ID = "CharID",
         Type = "string",
         Default = ""
     };
-
-    bash.reg.addVar{
-        ID = "CharData",
-        Type = "string",
-        Default = {},
-        GetDefault = function(self, ply)
-            return (checkply(ply) and ply.SQLData and ply.SQLData["bash_chars"]) or self.Default;
-        end
-    };
+    ]]
 end

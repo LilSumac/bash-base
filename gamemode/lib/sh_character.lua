@@ -1,6 +1,45 @@
 -- Library for handling character data and objects.
 bash.char = bash.char or {};
+bash.char.vars = bash.char.vars or {};
 bash.char.active = bash.char.active or {};
+
+function bash.char.addVar(varTab)
+    if !varTab or !varTab.ID then return; end
+    if bash.reg.vars[varTab.ID] then
+        MsgErr("[bash.char.addVar] -> A variable with the ID '%s' already exists.", varTab.ID);
+        return;
+    end
+
+    -- General variable information.
+    varTab.ID = varTab.ID;
+    varTab.Type = varTab.Type or "string";
+    varTab.Default = varTab.Default or "";
+    varTab.IsPublic = varTab.IsPublic or false;
+
+    -- Variable source information.
+    varTab.Source = varTab.Source or SRC_MAN;
+    varTab.SourceColumn = (varTab.Source == SRC_SQL and varTab.SourceColumn) or nil;
+
+    -- Variable hooks.
+    varTab.OnGenerateCL = varTab.OnGenerateCL; -- function(_self, def)
+    varTab.OnGenerateSV = varTab.OnGenerateSV; -- function(_self, def, ply)
+    varTab.OnLoad = varTab.OnLoad or function(_self, ply, index, def)
+        if _self.Source == SRC_SQL then
+            return ply:GetSQLData(_self.SourceTable, index, _self.SourceColumn);
+        else return def; end
+    end
+    varTab.OnGet = varTab.OnGet; -- function(_self, val, def, ent)
+    varTab.OnSet = varTab.OnSet; -- function(_self, val, def, ent)
+
+    bash.char.vars[varTab.ID] = varTab;
+end
+
+-- Local function for dropping the variable structures (on refresh).
+local function dropVars()
+    if table.IsEmpty(bash.char.vars) then return; end
+    MsgDebug("Dropping variable structures from character library...");
+    bash.char.vars = {};
+end
 
 function bash.char.instance(ply, id)
     -- get SQL data linked to id
@@ -13,7 +52,7 @@ function bash.char.new(steamID, data)
 end
 
 
-
+--[[
 bash.char = bash.char or {};
 bash.char.active = bash.char.active or {};
 
@@ -60,4 +99,11 @@ end
 
 function bash.char.delete(id, ply)
 
+end
+]]
+
+
+
+do -- For server refreshes.
+    dropVars();
 end
