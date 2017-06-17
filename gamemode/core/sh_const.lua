@@ -22,6 +22,8 @@ CORE_EXCLUDED = {
     ["sh_util.lua"] =   true
 };
 
+EMPTY_TAB = {};
+
 Fmt = Format;
 
 PREFIXES_CLIENT = {

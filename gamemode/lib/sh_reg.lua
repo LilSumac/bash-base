@@ -5,7 +5,6 @@ bash.reg.entries = bash.reg.entries or {};
 bash.reg.entries.globals = bash.reg.entries.globals or {};
 bash.reg.queue = bash.reg.queue or Queue:Create();
 bash.reg.queuePlace = bash.reg.queuePlace or 0;
-bash.reg.progress = bash.reg.progress or "Loading...";
 bash.reg.lastFinish = bash.reg.lastFinish or nil;
 
 function bash.reg.addVar(varTab)
@@ -14,26 +13,33 @@ function bash.reg.addVar(varTab)
         MsgErr("[bash.reg.addVar] -> A variable with the ID '%s' already exists.", varTab.ID);
         return;
     end
-
+	
+	-- General variable information.
     varTab.ID = varTab.ID;
     varTab.Type = varTab.Type or "string";
     varTab.Default = varTab.Default or "";
-    varTab.GetDefault = varTab.GetDefault or function(self) return self.Default; end
     varTab.IsPublic = varTab.IsPublic or false;
     varTab.IsGlobal = varTab.IsGlobal or false;
+	
+	-- Variable source information.
     varTab.Source = varTab.Source or SRC_MAN;
     varTab.SourceTable = (varTab.Source == SRC_SQL and (varTab.SourceTable or "bash_plys")) or nil;
-    varTab.Query = (varTab.Source == SRC_SQL and (varTab.Query or SQL_TYPE[varTab.Type])) or nil;
+    varTab.ColumnQuery = (varTab.Source == SRC_SQL and (varTab.ColumnQuery or SQL_TYPE[varTab.Type])) or nil;
     varTab.SourceKey = (varTab.Source == SRC_CACHE and varTab.SourceKey) or nil;
     varTab.IsMapSpecific = (varTab.Source == SRC_CACHE and (varTab.IsMapSpecific or false)) or nil;
-    varTab.IgnoreSchema = (varTab.Source == SRC_CACHE and (varTab.IgnoreSchema or false)) or nil;
+    varTab.IsSchemaSpecific = (varTab.Source == SRC_CACHE and (varTab.IsSchemaSpecific or false)) or nil;
+	
+	-- Variable hooks.
+	varTab.OnRegister = varTab.OnRegister or function(ply, def) return def; end
+	varTab.OnGet = varTab.OnGet; -- function(val, def, ent)
+	varTab.OnSet = varTab.OnSet; -- function(val, def, ent)
 
     bash.reg.vars[varTab.ID] = varTab;
 end
 
 -- Local function for dropping the variable structures (on refresh).
 local function dropVars()
-    if bash.reg.vars == {} then return; end
+    if table.IsEmpty(bash.reg.vars) then return; end
     MsgDebug("Dropping variable structures from registry...");
     bash.reg.vars = {};
 end
@@ -45,17 +51,27 @@ local Player = FindMetaTable("Player");
 function getGlobal(key)
     local var = bash.reg.vars[key];
     if !var or !var.IsGlobal then return; end
-    return bash.reg.entries.globals[key] or var:GetDefault();
+	if var.OnGet then
+		return var.OnGet(bash.reg.entries.globals[key], var.Default);
+	else
+		return bash.reg.entries.globals[key] or var.Default;
+	end
 end
 
 function Entity:GetNetVar(key)
     local var = bash.reg.vars[key];
     if var and var.IsGlobal then return; end
-    if !bash.reg.entries[self:EntIndex()] then
+	local id = self:EntIndex();
+    if !bash.reg.entries[id] then
         MsgErr("[Entity.GetNetVar] -> This entity is not in the registry! (%s)", tostring(self));
         return;
     end
-    return bash.reg.entries[self:EntIndex()][key] or (var and var:GetDefault(self));
+	
+	if var and var.OnGet then
+		return var.OnGet(bash.reg.entries[id][key], var.Default, self);
+	else
+		return bash.reg.entries[id][key] or var.Default;
+	end
 end
 
 function Player:Registered()
@@ -91,20 +107,13 @@ if SERVER then
         send.globals = {};
         for key, var in pairs(bash.reg.vars) do
             if !var.IsGlobal then continue; end
-            local val = bash.cache.get(var.SourceKey or key, var:GetDefault(), var.IgnoreSchema, var.IsMapSpecific, true);
+            local val = bash.cache.get(var.SourceKey or key, var.Default, var.IsSchemaSpecific, var.IsMapSpecific, true);
             bash.entries.globals[key] = val;
             send.globals[key] = val;
         end
 
         update:Table(send);
         update:Broadcast();
-    end
-
-    function bash.reg.sendProgress(ply, msg)
-        local progress = vnet.CreatePacket("reg_progress");
-        progress:String(msg);
-        progress:AddTargets(ply);
-        progress:Send();
     end
 
     --[[ To avoid server overload, values will just be updated on the fly.
@@ -169,8 +178,12 @@ if SERVER then
         if type(val) != var.Type then return; end
         if checkBadType(key, val) then return; end
         if getGlobal(key) == val then return; end
-
-        bash.reg.entries.globals[key] = val;
+		
+		if var.OnSet then
+			bash.reg.entries.globals[key] = var.OnSet(val, var.Default);
+		else
+			bash.reg.entries.globals[key] = val;
+		end
 
         local update = vnet.CreatePacket("reg_update");
         local send = {};
@@ -192,7 +205,12 @@ if SERVER then
 
         local id = self:EntIndex();
         bash.reg.entries[id] = bash.reg.entries[id] or {};
-        bash.reg.entries[id][key] = val;
+		if var and var.OnSet then
+			bash.reg.entries[id][key] = var.OnSet(val, var.Default, self);
+			val = bash.reg.entries[id][key];
+		else
+			bash.reg.entries[id][key] = val;
+		end
 
         local update = vnet.CreatePacket("reg_update");
         local send = {};
@@ -239,7 +257,8 @@ if SERVER then
             MsgDebug("Updated '%s' for player %s.", key, name);
         end);
     end
-
+	
+	-- SQL updating is NOT supported with this function! Use SetNetVar for that purpose.
     function Entity:SetNetVars(data)
         local id = self:EntIndex();
         local update = vnet.CreatePacket("reg_update");
@@ -258,7 +277,12 @@ if SERVER then
             if checkBadType(key, val) then return; end
 
             bash.reg.entries[id] = bash.reg.entries[id] or {};
-            bash.reg.entries[id][key] = val;
+			if var and var.OnSet then
+				bash.reg.entries[id][key] = var.OnSet(val, var.Default, self);
+				val = bash.reg.entries[id][key];
+			else
+				bash.reg.entries[id][key] = val;
+			end
 
             sendSelf[id][key] = val;
             if !var or var.IsPublic then
@@ -313,10 +337,10 @@ if SERVER then
         data = data or {};
         MsgCon(color_green, "Registering player %s...", self:Name());
 
-        bash.reg.sendProgress(self, "Syncing registry...");
+        bash.util.sendLoadProgress(self, "Syncing registry...");
         self:SyncRegistry();
 
-        bash.reg.sendProgress(self, "Registering...");
+        bash.util.sendLoadProgress(self, "Registering...");
         local id = self:EntIndex();
         bash.reg.entries[id] = bash.reg.entries[id] or {};
         local updateSelf = vnet.CreatePacket("reg_update");
@@ -330,13 +354,8 @@ if SERVER then
         for key, var in pairs(bash.reg.vars) do
             -- Global variables are not bound to players.
             if var.IsGlobal then continue; end
-            -- The 'bash_plys' table is the only data we handle immediately. Registering all other
-            -- variables is done either through hooks or manually.
-            if var.Source == SRC_SQL and var.SourceTable == "bash_plys" then
-                val = (self.SQLData and self.SQLData["bash_plys"] and self.SQLData["bash_plys"][key]) or self:GetDefault(self);
-            else
-                val = var:GetDefault(self);
-            end
+			
+			val = var.OnRegister(self, var.Default);
 
             -- Decode tables!
             if var.Type == "table" and type(val) == "string" then
@@ -367,7 +386,7 @@ if SERVER then
             update:Discard();
         end
 
-        bash.reg.sendProgress(self, "Finishing up...");
+        bash.util.sendLoadProgress(self, "Finishing up...", true);
         self.Registered = true;
         bash.reg.lastFinish = id;
 
@@ -426,7 +445,7 @@ if SERVER then
     hook.Add("EditSQLTables", "reg_sqlpush", function()
         for key, var in pairs(bash.reg.vars) do
             if var.Source == SRC_SQL then
-                bash.sql.addColumn(var.SourceTable, key, var.Query, true);
+                bash.sql.addColumn(var.SourceTable, key, var.ColumnQuery, true);
             end
         end
     end);
@@ -438,17 +457,6 @@ elseif CLIENT then
         local id = LocalPlayer():EntIndex();
         bash.reg.queuePlace = data[id] or 0;
         MsgCon(color_green, "You are in queue position %d.", bash.reg.queuePlace);
-    end);
-
-    vnet.Watch("reg_progress", function(pck)
-        local data = pck:String();
-        bash.reg.progress = data;
-        MsgCon(color_green, data);
-
-        if data == "Finishing up..." then
-            LocalPlayer().Initialized = true;
-            MsgCon(color_green, "All done!");
-        end
     end);
 
     vnet.Watch("reg_update", function(pck)
@@ -468,12 +476,18 @@ elseif CLIENT then
 
 end
 
--- Add all default registry variables!
-hook.Add("AddRegistryVariables", "reg_defaultvars", function()
+do -- For server refreshes.
+	dropVars();
+	
+	-- Add all default registry variables!
     bash.reg.addVar{
         ID = "Addresses",
         Type = "table",
-        Default = {},
+        Default = EMPTY_TAB,
+		OnInitial = function(val, default, ply)
+		
+		end,
+		OnGet = function(
         GetDefault = function(self, ply) return (checkply(ply) and {[ply:IPAddress()] = true}) or self.Default; end,
         Source = SRC_SQL,
         SourceTable = "bash_plys"
@@ -552,7 +566,4 @@ hook.Add("AddRegistryVariables", "reg_defaultvars", function()
             return (checkply(ply) and ply.SQLData and ply.SQLData["bash_chars"]) or self.Default;
         end
     };
-end);
-
--- For server refreshes.
-dropVars();
+end

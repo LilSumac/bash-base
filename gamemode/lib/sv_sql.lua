@@ -3,6 +3,7 @@ bash.sql = bash.sql or {};
 bash.sql.obj = bash.sql.obj or nil;
 bash.sql.connected = bash.sql.connected or false;
 bash.sql.tables = bash.sql.tables or {};
+bash.sql.charstats = bash.sql.charstats or {};
 local color_sql = Color(0, 151, 151, 255);
 
 -- tmysql4 is the required SQL module.
@@ -24,13 +25,13 @@ function bash.sql.addTable(tab)
 
     tab.Name = tab.Name;
     tab.Reference = tab.Reference or REF_NONE;
-    tab.Struct = tab.Struct or {};
-    tab.Struct["EntryNum"] = "INT(10) UNSIGNED NOT NULL AUTO_INCREMENT";
+    tab.Columns = tab.Columns or {};
+    tab.Columns["EntryNum"] = "INT(10) UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE";
     if tab.Reference == REF_PLY then
-        tab.Struct["SteamID"] = "TEXT NOT NULL";
+        tab.Columns["SteamID"] = "TEXT NOT NULL";
     elseif tab.Reference == REF_CHAR then
-        tab.Struct["SteamID"] = "TEXT NOT NULL";
-        tab.Struct["CharID"] = "TEXT NOT NULL";
+        tab.Columns["SteamID"] = "TEXT NOT NULL";
+        tab.Columns["CharID"] = "TEXT NOT NULL";
     end
     tab.Key = "EntryNum";
 
@@ -45,7 +46,7 @@ function bash.sql.addColumn(tabName, colName, col, override)
         return;
     end
 
-    if bash.sql.tables[tabName].Struct[colName] then
+    if bash.sql.tables[tabName].Columns[colName] then
         if override then
             MsgDebug("Overriding column '%s' in table '%s'.", colName, tabName);
         else
@@ -56,12 +57,12 @@ function bash.sql.addColumn(tabName, colName, col, override)
         MsgDebug("Adding column '%s' to table '%s'.", colName, tabName);
     end
 
-    bash.sql.tables[tabName].Struct[colName] = col;
+    bash.sql.tables[tabName].Columns[colName] = col;
 end
 
 -- Local function for dropping the table structures (on refresh).
 local function dropTables()
-    if bash.sql.tables == {} then return; end
+    if table.IsEmpty(bash.sql.tables) then return; end
     MsgDebug("Dropping SQL table structures...");
     bash.sql.tables = {};
 end
@@ -107,7 +108,7 @@ local function columnCheck()
     local missing = {};
     for name, tab in pairs(bash.sql.tables) do
         missing[name] = {};
-        for colName, col in pairs(tab.Struct) do
+        for colName, col in pairs(tab.Columns) do
             missing[name][colName] = col;
         end
     end
@@ -154,7 +155,7 @@ local function tableCheck()
     local query = "";
     for name, tab in pairs(bash.sql.tables) do
         query = query .. Fmt("CREATE TABLE IF NOT EXISTS %s(", name);
-        for colName, col in pairs(tab.Struct) do
+        for colName, col in pairs(tab.Columns) do
             query = query .. Fmt("`%s` %s, ", colName, col);
         end
         query = query .. Fmt("PRIMARY KEY(%s)); ", tab.Key);
@@ -167,56 +168,7 @@ local function tableCheck()
 end
 
 function bash.sql.connect()
-    -- Create default table structure first!
-    bash.sql.addTable{
-        Name = "bash_plys",
-        Reference = REF_PLY,
-        Struct = {
-            ["Name"] = SQL_TYPE["string"]
-        }
-    };
-
-    bash.sql.addTable{
-        Name = "bash_chars",
-        Reference = REF_CHAR,
-        Struct = {}
-    };
-
-    bash.sql.addTable{
-        Name = "bash_invs",
-        Reference = REF_NONE,
-        Struct = {}
-    };
-
-    bash.sql.addTable{
-        Name = "bash_items",
-        Reference = REF_NONE,
-        Struct = {}
-    };
-
-    bash.sql.addTable{
-        Name = "bash_bans",
-        Reference = REF_NONE,
-        Struct = {
-            ["VictimName"] = SQL_TYPE["string"],
-            ["VictimSteamID"] = SQL_TYPE["string"],
-            ["BannerName"] = SQL_TYPE["string"],
-            ["BannerSteamID"] = SQL_TYPE["string"],
-            ["BanTime"] = SQL_TYPE["number"],
-            ["BanLength"] = SQL_TYPE["number"],
-            ["BanReason"] = SQL_TYPE["string"]
-        }
-    };
-
-    -- Gather all external registry variables so we can add them to the table
-    -- structures!
-    hook.Call("AddRegistryVariables");
-
-    -- Gather all external structures too!
-    hook.Call("AddSQLTables");
-    hook.Call("EditSQLTables");
-
-    -- Now that we have all the info of our DB, we connect.
+	-- First, we check to see if we can connect to the database.
     local obj, err = tmysql.initialize(
         bash.sql.hostname, bash.sql.username,
         bash.sql.password, bash.sql.database,
@@ -227,12 +179,59 @@ function bash.sql.connect()
         bash.sql.obj = obj;
         bash.sql.connected = true;
         MsgCon(color_sql, "Successfully connected to MySQL server!");
-        tableCheck();
     else
         MsgErr("Unable to connect to MySQL server!");
         MsgErr(err);
         return;
     end
+	
+    -- Create default table structure!
+    bash.sql.addTable{
+        Name = "bash_plys",
+        Reference = REF_PLY,
+        Columns = {
+            ["Name"] = SQL_TYPE["string"]
+        }
+    }; 
+
+    bash.sql.addTable{
+        Name = "bash_chars",
+        Reference = REF_CHAR,
+        Columns = {}
+    };
+
+    bash.sql.addTable{
+        Name = "bash_invs",
+        Reference = REF_NONE,
+        Columns = {}
+    };
+
+    bash.sql.addTable{
+        Name = "bash_items",
+        Reference = REF_NONE,
+        Columns = {}
+    };
+
+    bash.sql.addTable{
+        Name = "bash_bans",
+        Reference = REF_NONE,
+        Columns = {
+            ["VictimName"] = SQL_TYPE["string"],
+            ["VictimID"] = SQL_TYPE["string"],
+            ["BannerName"] = SQL_TYPE["string"],
+            ["BannerSteamID"] = SQL_TYPE["string"],
+            ["BanTime"] = SQL_TYPE["number"],
+            ["BanLength"] = SQL_TYPE["number"],
+            ["BanReason"] = SQL_TYPE["string"]
+        }
+    };
+	
+	-- Gather all external structures!
+    hook.Call("AddSQLTables");
+    hook.Call("EditSQLTables");
+	
+	-- Finally, check the database structure.
+	tableCheck();
 end
 
 function bash.sql.disconnect()
@@ -258,7 +257,8 @@ function bash.sql.playerInit(ply)
     if !bash.sql.connected then return; end
     if !checkply(ply) then return; end
 
-    bash.reg.sendProgress(ply, "Starting up...");
+    bash.util.sendLoadProgress(ply, "Starting up...");
+	hook.Call("PreSQLData", nil, ply);
 
     local id = ply:EntIndex();
     bash.reg.queue = bash.reg.queue or Queue:Create();
@@ -304,7 +304,7 @@ function bash.sql.createPlyData(ply)
     if !bash.sql.connected then return; end
     if !checkply(ply) then return; end
 
-    bash.reg.sendProgress(ply, "Creating your own row...");
+    bash.util.sendLoadProgress(ply, "Creating your own row...");
 
     local name, steamID = ply:Name(), ply:SteamID();
     local vars = {};
@@ -351,7 +351,7 @@ function bash.sql.getCharData(ply)
     if !bash.sql.connected then return; end
     if !checkply(ply) then return; end
 
-    bash.reg.sendProgress(ply, "Gathering existing data...");
+    bash.util.sendLoadProgress(ply, "Gathering existing data...");
 
     local name, steamID = ply:Name(), ply:SteamID();
     MsgDebug("Gathering existing data for %s (%s)...", name, steamID);
@@ -370,6 +370,7 @@ function bash.sql.getCharData(ply)
     end);
 end
 
--- For server refreshes.
-dropTables();
-bash.sql.disconnect();
+do -- For server refreshes.
+	dropTables();
+	bash.sql.disconnect();
+end

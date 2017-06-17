@@ -1,9 +1,10 @@
 -- vgui element that handles the intro animation sequence.
 -- This is by far the ugliest code in the project thus far. I suck at making
 -- stuff look good.
+bash.progress = bash.progress or "Loading...";
+
 local INTRO = {};
 INTRO.Stage = INTRO.Stage or "Loading";
-INTRO.Message = INTRO.Message or "Loading...";
 INTRO.CurStep = INTRO.CurStep or 1;
 INTRO.SetupElements = INTRO.SetupElements or {};
 INTRO.SetupValues = INTRO.SetupValues or {};
@@ -118,7 +119,7 @@ function INTRO:Paint(w, h)
     surface.DrawRect(0, 0, w, h);
 
     if self.Stage == "Loading" then
-        draw.SimpleText(bash.reg.progress, "bash-regular-24", CENTER_X, CENTER_Y - 85, colAnim, TEXT_CENT, TEXT_BOT);
+        draw.SimpleText(bash.progress, "bash-regular-24", CENTER_X, CENTER_Y - 85, colAnim, TEXT_CENT, TEXT_BOT);
         if bash.reg.queuePlace > 1 then
             draw.SimpleText(Fmt("Place in queue: %d", bash.reg.queuePlace), "bash-regular-24", CENTER_X, CENTER_Y + 85, colAnim, TEXT_CENT, TEXT_TOP);
         elseif bash.reg.queuePlace == 1 then
