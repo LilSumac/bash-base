@@ -1,6 +1,7 @@
 -- Library for handling character data and objects.
 bash.char = bash.char or {};
 bash.char.vars = bash.char.vars or {};
+bash.char.usedIDs = bash.char.usedIDs or {};
 bash.char.active = bash.char.active or {};
 
 function bash.char.addVar(varTab)
@@ -48,7 +49,17 @@ function bash.char.instance(ply, id)
 end
 
 function bash.char.new(steamID, data)
-    -- loop through all
+    -- 
+end
+
+-- Player metatable and methods.
+local Player = FindMetaTable("Player");
+function Player:GetCharacter()
+    return self.Character;
+end
+
+function Player:SetCharacter(char)
+    self.Character = char;
 end
 
 

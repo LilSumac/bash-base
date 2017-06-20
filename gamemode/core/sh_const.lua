@@ -26,6 +26,11 @@ EMPTY_TAB = {};
 
 Fmt = Format;
 
+OS_UNK = 0;
+OS_WIN = 1;
+OS_OSX = 2;
+OS_LIN = 3;
+
 PREFIXES_CLIENT = {
     ["cl"] =   true,
     ["vgui"] = true

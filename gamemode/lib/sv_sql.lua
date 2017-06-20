@@ -288,12 +288,6 @@ function bash.sql.playerInit(ply)
             _ply.SQLData = _ply.SQLData or {};
             _ply.SQLData["bash_plys"] = results.data[1];
 
-            -- Update IPs!
-            local ips = _ply.SQLData["bash_plys"]["Addresses"];
-            ips = pon.decode(ips);
-            ips[_ply:IPAddress()] = true;
-            ips = pon.encode(ips);
-
             hook.Call("PostPlyData", nil, _ply);
             bash.sql.getCharData(_ply);
         end
@@ -309,10 +303,16 @@ function bash.sql.createPlyData(ply)
     local name, steamID = ply:Name(), ply:SteamID();
     local vars = {};
     local vals = {};
+    local val;
     for key, var in pairs(bash.reg.vars) do
         if var.SourceTable == "bash_plys" then
             vars[#vars + 1] = key;
-            vals[#vals + 1] = var:GetDefault(ply);
+            val = var:OnGenerateSV(ply, var.Default);
+            if var.Type == "table" then
+                vals[#vals + 1] = pon.encode(val)
+            else
+                vals[#vals + 1] = val;
+            end
         end
     end
 
@@ -324,8 +324,6 @@ function bash.sql.createPlyData(ply)
     for index, val in ipairs(vals) do
         if type(val) == "string" then
             query = query .. Fmt(", \'%s\'", bash.sql.escape(val));
-        elseif type(val) == "table" then
-            query = query .. Fmt(", \'%s\'", bash.sql.escape(pon.encode(val)));
         else
             query = query .. ", " .. tostring(val);
         end

@@ -5,6 +5,9 @@ bash.charmenu.vars = bash.charmenu.vars or {};
 bash.charmenu.scenes = bash.charmenu.scenes or {};
 bash.charmenu.loadedScenes = bash.charmenu.loadedScenes or {};
 
+-- Micro-optimizations.
+local _FrameTime = FrameTime;
+
 function bash.charmenu.open()
     if checkpanel(bash.charmenu.obj) and bash.charmenu:IsVisible() then return; end
 
@@ -210,7 +213,7 @@ bash.charmenu.addScene{
             if curPos.y < -200 then
                 curPos.y = 200;
             else
-                curPos.y = curPos.y - (FrameTime() * 100);
+                curPos.y = curPos.y - (_FrameTime() * 100);
             end
             _self:SetPos(curPos);
         end
@@ -227,7 +230,7 @@ bash.charmenu.addScene{
             if curPos.y > 175 then
                 curPos.y = -100;
             else
-                curPos.y = curPos.y + (FrameTime() * 100);
+                curPos.y = curPos.y + (_FrameTime() * 100);
             end
             _self:SetPos(curPos);
         end
@@ -244,7 +247,7 @@ bash.charmenu.addScene{
             if curPos.y > 1500 then
                 curPos.y = -100;
             else
-                curPos.y = curPos.y + (FrameTime() * 300);
+                curPos.y = curPos.y + (_FrameTime() * 300);
             end
             _self:SetPos(curPos);
         end

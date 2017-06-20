@@ -10,24 +10,27 @@ INTRO.SetupElements = INTRO.SetupElements or {};
 INTRO.SetupValues = INTRO.SetupValues or {};
 INTRO.RequestedData = INTRO.RequestedData or false;
 
+-- Micro-optimizations.
+local _Color, _CurTime, draw_SimpleText, _HSVToColor, _LerpColor, _LerpLim, LP, math_cos, math_sin, surface_DrawRect, surface_DrawTexturedRect, surface_DrawTexturedRectUV, surface_SetDrawColor, surface_SetMaterial, _SysTime = Color, CurTime, draw.SimpleText, HSVToColor, LerpColor, LerpLim, LocalPlayer, math.cos, math.sin, surface.DrawRect, surface.DrawTexturedRect, surface.DrawTexturedRectUV, surface.SetDrawColor, surface.SetMaterial, SysTime;
+
 -- Positions
 local w, h = SCRW, SCRH;
 local x1, x2, y1, y2 = 0, 0, 0, 0;
 local left, right, up, down = (w * 0.125), (w * 0.875), (h * 0.2), (h * 0.8);
 
 -- Colors
-local colBG, colAnim = colBG or Color(255, 255, 255), colAnim or Color(255, 255, 255);
+local colBG, colAnim = colBG or _Color(255, 255, 255), colAnim or _Color(255, 255, 255);
 local colorL, colorT, colorR, colorB;
 local bgSeq = {
-    Color(51, 153, 255),
-    Color(255, 51, 153),
-    Color(153, 255, 51),
-    Color(0, 153, 153),
-    Color(153, 0, 153),
-    Color(153, 153, 0),
-    Color(0, 153, 76),
-    Color(76, 0, 153),
-    Color(153, 76, 0)
+    _Color(51, 153, 255),
+    _Color(255, 51, 153),
+    _Color(153, 255, 51),
+    _Color(0, 153, 153),
+    _Color(153, 0, 153),
+    _Color(153, 153, 0),
+    _Color(0, 153, 76),
+    _Color(76, 0, 153),
+    _Color(153, 76, 0)
 };
 
 -- Alphas
@@ -59,43 +62,43 @@ function INTRO:Init()
 end
 
 function INTRO:PaintBG(w, h)
-    surface.SetDrawColor(color_white);
-    surface.DrawRect(0, 0, w, h);
+    surface_SetDrawColor(color_white);
+    surface_DrawRect(0, 0, w, h);
 
-    local time = CurTime() * 10;
-    colorL = HSVToColor(time % 360, 0.5, 0.5);
-    colorT = HSVToColor((time + 30) % 360, 0.5, 0.5);
-    colorR = HSVToColor((time + 60) % 360, 0.5, 0.5);
-    colorB = HSVToColor((time + 90) % 360, 0.5, 0.5);
+    local time = _CurTime() * 10;
+    colorL = _HSVToColor(time % 360, 0.5, 0.5);
+    colorT = _HSVToColor((time + 30) % 360, 0.5, 0.5);
+    colorR = _HSVToColor((time + 60) % 360, 0.5, 0.5);
+    colorB = _HSVToColor((time + 90) % 360, 0.5, 0.5);
     colorL.a = alphaAnim;
     colorT.a = alphaAnim;
     colorR.a = alphaAnim;
     colorB.a = alphaAnim;
 
-    surface.SetMaterial(gradH);
-    surface.SetDrawColor(colorL);
-    surface.DrawTexturedRect(0, 0, w, h);
+    surface_SetMaterial(gradH);
+    surface_SetDrawColor(colorL);
+    surface_DrawTexturedRect(0, 0, w, h);
 
-    surface.SetMaterial(gradH);
-    surface.SetDrawColor(colorR);
-    surface.DrawTexturedRectUV(0, 0, w, h, 1, 0, 0, 1);
+    surface_SetMaterial(gradH);
+    surface_SetDrawColor(colorR);
+    surface_DrawTexturedRectUV(0, 0, w, h, 1, 0, 0, 1);
 
-    surface.SetMaterial(gradV);
-    surface.SetDrawColor(colorT);
-    surface.DrawTexturedRect(0, 0, w, h);
+    surface_SetMaterial(gradV);
+    surface_SetDrawColor(colorT);
+    surface_DrawTexturedRect(0, 0, w, h);
 
-    surface.SetMaterial(gradV);
-    surface.SetDrawColor(colorB);
-    surface.DrawTexturedRectUV(0, 0, w, h, 0, 1, 1, 0);
+    surface_SetMaterial(gradV);
+    surface_SetDrawColor(colorB);
+    surface_DrawTexturedRectUV(0, 0, w, h, 0, 1, 1, 0);
 end
 
 function INTRO:Paint(w, h)
     if self.Stage == "Done" then return; end
 
-    if !LocalPlayer().Initialized then
-        alphaBG = LerpLim(0.05, alphaBG, 0);
-        alphaAnim = LerpLim(0.01, alphaAnim, 255);
-        LerpColor(0.01, colBG, color_white, true);
+    if !LP().Initialized then
+        alphaBG = _LerpLim(0.05, alphaBG, 0);
+        alphaAnim = _LerpLim(0.01, alphaAnim, 255);
+        _LerpColor(0.01, colBG, color_white, true);
 
         if alphaBG == 0 and alphaAnim > 200 and !self.RequestedData then
             self.RequestedData = true;
@@ -104,8 +107,8 @@ function INTRO:Paint(w, h)
             init:Send();
         end
     elseif self.Stage == "Intro" then
-        alphaAnim = LerpLim(0.01, alphaAnim, 255);
-        LerpColor(0.01, colBG, color_white, true);
+        alphaAnim = _LerpLim(0.01, alphaAnim, 255);
+        _LerpColor(0.01, colBG, color_white, true);
     end
 
     colBG.a = alphaBG;
@@ -115,35 +118,35 @@ function INTRO:Paint(w, h)
         self:PaintBG(w, h);
     end
 
-    surface.SetDrawColor(colBG);
-    surface.DrawRect(0, 0, w, h);
+    surface_SetDrawColor(colBG);
+    surface_DrawRect(0, 0, w, h);
 
     if self.Stage == "Loading" then
-        draw.SimpleText(bash.progress, "bash-regular-24", CENTER_X, CENTER_Y - 85, colAnim, TEXT_CENT, TEXT_BOT);
+        draw_SimpleText(bash.progress, "bash-regular-24", CENTER_X, CENTER_Y - 85, colAnim, TEXT_CENT, TEXT_BOT);
         if bash.reg.queuePlace > 1 then
-            draw.SimpleText(Fmt("Place in queue: %d", bash.reg.queuePlace), "bash-regular-24", CENTER_X, CENTER_Y + 85, colAnim, TEXT_CENT, TEXT_TOP);
+            draw_SimpleText(Fmt("Place in queue: %d", bash.reg.queuePlace), "bash-regular-24", CENTER_X, CENTER_Y + 85, colAnim, TEXT_CENT, TEXT_TOP);
         elseif bash.reg.queuePlace == 1 then
-            draw.SimpleText("You're on your way!", "bash-regular-24", CENTER_X, CENTER_Y + 85, colAnim, TEXT_CENT, TEXT_TOP);
+            draw_SimpleText("You're on your way!", "bash-regular-24", CENTER_X, CENTER_Y + 85, colAnim, TEXT_CENT, TEXT_TOP);
         end
 
-        x1 = CENTER_X - (math.cos(SysTime()) * 100);
-        y1 = CENTER_Y + (math.sin(SysTime() * 2) * 60);
-        x2 = CENTER_X - (math.cos(SysTime() - 0.25) * 100);
-        y2 = CENTER_Y + (math.sin((SysTime() * 2) - 0.25) * 60);
+        x1 = CENTER_X - (math_cos(_SysTime()) * 100);
+        y1 = CENTER_Y + (math_sin(_SysTime() * 2) * 60);
+        x2 = CENTER_X - (math_cos(_SysTime() - 0.25) * 100);
+        y2 = CENTER_Y + (math_sin((_SysTime() * 2) - 0.25) * 60);
 
-        draw.Circle(x1 + (10 * -math.cos(SysTime() * 2)), y1 + (10 * math.sin(SysTime())), 4, 10, colAnim);
-        draw.Circle(x1 - (10 * -math.cos(SysTime() * 2)), y1 - (10 * math.sin(SysTime())), 4, 10, colAnim);
+        draw.Circle(x1 + (10 * -math_cos(_SysTime() * 2)), y1 + (10 * math_sin(_SysTime())), 4, 10, colAnim);
+        draw.Circle(x1 - (10 * -math_cos(_SysTime() * 2)), y1 - (10 * math_sin(_SysTime())), 4, 10, colAnim);
         draw.Circle(x2, y2, 4, 10, colAnim);
     elseif self.Stage == "Intro" then
-        alphaBG = LerpLim(0.05, alphaBG, 0);
+        alphaBG = _LerpLim(0.05, alphaBG, 0);
 
-        draw.SimpleText(headers[self.CurStep], "bash-regular-36", w / 2, (h * 0.2), colAnim, TEXT_CENT, TEXT_TOP);
+        draw_SimpleText(headers[self.CurStep], "bash-regular-36", w / 2, (h * 0.2), colAnim, TEXT_CENT, TEXT_TOP);
 
         -- Cache the subheader lines for efficiency.
         for index, line in pairs(self.SubCache) do
             local boxH = 24 * #self.SubCache;
             -- Center the new player intro text.
-            draw.SimpleText(line, "bash-light-24", w / 2, (h / 2) - (boxH / 2) + ((index - 1) * 24), colAnim, TEXT_CENT, TEXT_TOP);
+            draw_SimpleText(line, "bash-light-24", w / 2, (h / 2) - (boxH / 2) + ((index - 1) * 24), colAnim, TEXT_CENT, TEXT_TOP);
         end
 
         local wid = (32 * #headers) - 24;
@@ -151,27 +154,27 @@ function INTRO:Paint(w, h)
             draw.Circle(
                 (CENTER_X - (wid / 2)) + (24 * (index - 1)) + 4,
                 (h * 0.8) - 16,
-                4, 10, (self.CurStep == index and Color(128, 128, 128, alphaAnim)) or colAnim
+                4, 10, (self.CurStep == index and _Color(128, 128, 128, alphaAnim)) or colAnim
             );
         end
     elseif self.Stage == "IntroDone" then
-        alphaBG = LerpLim(0.05, alphaBG, 255);
-        LerpColor(0.01, colBG, color_black, true);
+        alphaBG = _LerpLim(0.05, alphaBG, 255);
+        _LerpColor(0.01, colBG, color_black, true);
 
         if alphaBG > 200 and colBG.r < 20 and colBG.g < 20 and colBG.b < 20 then
-            self.ShowedEnjoy = self.ShowedEnjoy or CurTime();
-            alphaAnim = LerpLim(0.01, alphaAnim, 255);
-            draw.SimpleText("Enjoy.", "bash-regular-36", w / 2, h / 2, colAnim, TEXT_CENT, TEXT_CENT);
-            if CurTime() - self.ShowedEnjoy > 3 then
+            self.ShowedEnjoy = self.ShowedEnjoy or _CurTime();
+            alphaAnim = _LerpLim(0.01, alphaAnim, 255);
+            draw_SimpleText("Enjoy.", "bash-regular-36", w / 2, h / 2, colAnim, TEXT_CENT, TEXT_CENT);
+            if _CurTime() - self.ShowedEnjoy > 3 then
                 self.Stage = "Finalize";
             end
         else
-            alphaAnim = LerpLim(0.05, alphaAnim, 0);
+            alphaAnim = _LerpLim(0.05, alphaAnim, 0);
         end
     elseif self.Stage == "Finalize" then
-        draw.SimpleText("Enjoy.", "bash-regular-36", w / 2, h / 2, colAnim, TEXT_CENT, TEXT_CENT);
-        alphaAnim = LerpLim(0.02, alphaAnim, 0);
-        alphaBG = LerpLim(0.02, alphaBG, 0);
+        draw_SimpleText("Enjoy.", "bash-regular-36", w / 2, h / 2, colAnim, TEXT_CENT, TEXT_CENT);
+        alphaAnim = _LerpLim(0.02, alphaAnim, 0);
+        alphaBG = _LerpLim(0.02, alphaBG, 0);
         if alphaAnim == 0 and alphaBG == 0 then
             self.Stage = "Done";
             self:Remove();
@@ -179,11 +182,11 @@ function INTRO:Paint(w, h)
         end
     end
 
-    if LocalPlayer().Initialized and self.Stage == "Loading" then
-        alphaAnim = LerpLim(0.05, alphaAnim, 0);
-        alphaBG = LerpLim(0.05, alphaBG, 255);
+    if LP().Initialized and self.Stage == "Loading" then
+        alphaAnim = _LerpLim(0.05, alphaAnim, 0);
+        alphaBG = _LerpLim(0.05, alphaBG, 255);
 
-        if LocalPlayer():GetNetVar("NewPlayer") == 1 then
+        if LP():GetNetVar("NewPlayer") == 1 then
             if alphaAnim < 1 then
                 self:CreateNewPlayer();
                 self.Stage = "Intro";
@@ -239,7 +242,9 @@ function INTRO:CreateNewPlayer()
         _self:SetStep(_self.CurStep - 1);
     end
     function self.BackButton:Think()
-        self:SetHoverColor(Color(200, 200, 200, alphaAnim));
+        if self.HoverColor.a != alphaAnim then
+            self.HoverColor.a = alphaAnim;
+        end
     end
 
     self.NextButton = vgui.Create("TextButton", self);
@@ -260,7 +265,9 @@ function INTRO:CreateNewPlayer()
         _self:SetStep(_self.CurStep + 1);
     end
     function self.NextButton:Think()
-        self:SetHoverColor(Color(200, 200, 200, alphaAnim));
+        if self.HoverColor.a != alphaAnim then
+            self.HoverColor.a = alphaAnim;
+        end
     end
 end
 

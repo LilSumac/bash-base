@@ -14,6 +14,7 @@ AddCSLuaFile("shared.lua");
 -- Include required base files.
 include("core/sh_const.lua");
 include("core/sh_util.lua");
+include("core/sv_util.lua");
 include("shared.lua");
 
 -- Report startup time.

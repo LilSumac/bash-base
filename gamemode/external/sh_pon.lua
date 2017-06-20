@@ -371,3 +371,5 @@ do
 end
 
 MsgCon(color_green, "pON loaded! (1.2.1)");
+
+PON_EMPTY = pon.encode({})

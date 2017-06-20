@@ -22,25 +22,34 @@ function bash.reg.addVar(varTab)
     varTab.IsGlobal = varTab.IsGlobal or false;
 
 	-- Variable source information.
-    varTab.Source = varTab.Source or SRC_MAN;
-    varTab.SourceTable = (varTab.Source == SRC_SQL and (varTab.SourceTable or "bash_plys")) or nil;
-    varTab.SourceColumn = (varTab.Source == SRC_SQL and varTab.SourceColumn) or nil;
-    varTab.ColumnQuery = (varTab.Source == SRC_SQL and (varTab.ColumnQuery or SQL_TYPE[varTab.Type])) or nil;
-    varTab.SourceKey = (varTab.Source == SRC_CACHE and varTab.SourceKey) or nil;
-    varTab.IsMapSpecific = (varTab.Source == SRC_CACHE and (varTab.IsMapSpecific or false)) or nil;
-    varTab.IsSchemaSpecific = (varTab.Source == SRC_CACHE and (varTab.IsSchemaSpecific or false)) or nil;
+    if SERVER then
+        varTab.Source = varTab.Source or SRC_MAN;
+        varTab.SourceTable = (varTab.Source == SRC_SQL and (varTab.SourceTable or "bash_plys")) or nil;
+        varTab.SourceColumn = (varTab.Source == SRC_SQL and (varTab.SourceColumn or varTab.ID)) or nil;
+        varTab.ColumnQuery = (varTab.Source == SRC_SQL and (varTab.ColumnQuery or SQL_TYPE[varTab.Type])) or nil;
+        varTab.SourceKey = (varTab.Source == SRC_CACHE and varTab.SourceKey) or nil;
+        varTab.IsMapSpecific = (varTab.Source == SRC_CACHE and (varTab.IsMapSpecific or false)) or nil;
+        varTab.IsSchemaSpecific = (varTab.Source == SRC_CACHE and (varTab.IsSchemaSpecific or false)) or nil;
+    end
 
 	-- Variable hooks.
     if !varTab.IsGlobal then
-        varTab.OnGenerate = varTab.OnGenerate; -- function(_self, ply, def)
-        varTab.OnRegister = varTab.OnRegister or function(_self, ply, def)
-            if _self.Source == SRC_SQL then
-                return ply:GetSQLData(_self.SourceTable, _self.ID);
-            else return def; end
+        if CLIENT then varTab.OnGenerateCL = varTab.OnGenerateCL; end -- function(_self, def)
+        if SERVER then
+            varTab.OnGenerateSV = varTab.OnGenerateSV; -- function(_self, ply, def)
+            varTab.OnRegister = varTab.OnRegister or function(_self, ply, def)
+                if _self.Source == SRC_SQL then
+                    return ply:GetSQLData(_self.SourceTable, _self.ID);
+                else return (def == EMPTY_TAB and {}) or def; end
+            end
         end
     end
-	varTab.OnGet = varTab.OnGet; -- function(_self, val, def, ent)
-	varTab.OnSet = varTab.OnSet; -- function(_self, val, def, ent)
+    varTab.OnGet = varTab.OnGet or function(_self, val, def, ent)
+        return val or (def == EMPTY_TAB and {}) or def;
+    end
+    varTab.OnSet = varTab.OnSet or function(_self, val, def, ent)
+        return val or (def == EMPTY_TAB and {}) or def;
+    end
 
     bash.reg.vars[varTab.ID] = varTab;
 end
@@ -92,6 +101,7 @@ if SERVER then
     util.AddNetworkString("reg_queued");
     util.AddNetworkString("reg_update");
     util.AddNetworkString("reg_delete");
+    util.AddNetworkString("reg_predata");
 
     -- Check to see if there's an attempt to send a function.
     local function checkBadType(key, value)
@@ -416,6 +426,11 @@ if SERVER then
         update:Broadcast();
     end
 
+    function Player:GetPreData(key)
+        if !checkply(self) or !self.PreData then return; end
+        return self.PreData[key];
+    end
+
     -- Handle the registry queue.
     hook.Add("Think", "reg_queue", function()
         if !bash.reg.queue then return; end
@@ -448,6 +463,12 @@ if SERVER then
         end
     end);
 
+    vnet.Watch("reg_predata", function(pck)
+        local ply = pck.Source;
+        local data = pck:Table();
+        ply.PreData = data;
+    end);
+
     -- Deregister an entity when removed.
     hook.Add("EntityRemoved", "reg_cleanup", function(ent)
         ent:Deregister();
@@ -457,12 +478,31 @@ if SERVER then
     hook.Add("EditSQLTables", "reg_sqlpush", function()
         for key, var in pairs(bash.reg.vars) do
             if var.Source == SRC_SQL then
-                bash.sql.addColumn(var.SourceTable, (var.SourceColumn or key), var.ColumnQuery, true);
+                bash.sql.addColumn(var.SourceTable, var.SourceColumn, var.ColumnQuery, true);
             end
         end
     end);
 
 elseif CLIENT then
+
+    function bash.reg.addPreData(key, val)
+        if !key or !val then return; end
+        if !bash.reg.vars[key] then return; end
+
+        local LP = LocalPlayer();
+        LP.PreData = LP.PreData or {};
+        LP.PreData[key] = val;
+    end
+
+    function bash.reg.sendPreData()
+        local LP = LocalPlayer();
+        if !checkply(LP) or !LP.PreData or table.IsEmpty(LP.PreData) then return; end
+
+        local predata = vnet.CreatePacket("reg_predata");
+        predata:Table(LP.PreData);
+        preData:AddServer();
+        preData:Send();
+    end
 
     vnet.Watch("reg_queued", function(pck)
         local data = pck:Table();
@@ -486,6 +526,14 @@ elseif CLIENT then
         bash.reg.entries[id] = nil;
     end);
 
+    hook.Add("InitPostEntity", "reg_generateCLvars", function()
+        for key, var in pairs(bash.reg.vars) do
+            if var.OnGenerateCL then
+                var:OnGenerateCL(var.Default);
+            end
+        end
+    end);
+
 end
 
 do -- For server refreshes.
@@ -505,24 +553,52 @@ do -- For server refreshes.
         Default = EMPTY_TAB,
         Source = SRC_SQL,
         SourceTable = "bash_plys",
-        OnGenerate = function(_self, ply, def)
+        OnGenerateSV = function(_self, ply, def)
             if checkply(ply) then
                 local ip = ply:IPAddress();
                 ip = string.Explode(':', ip)[1];
                 return {[ip] = true};
             else return {}; end
+        end,
+        OnRegister = function(_self, ply, def)
+            local ips = ply:GetSQLData("bash_plys", "Addresses");
+            ips = pon.decode(ips);
+            ips[ply:IPAddress()] = true;
+            return ips;
         end
     };
 
     bash.reg.addVar{
         ID = "FirstLogin",
         Type = "number",
-        GetDefault = function() return os.time(); end,
         IsPublic = true,
         Source = SRC_SQL,
         SourceTable = "bash_plys",
-        OnGenerate = function(_self, ply, def)
+        OnGenerateSV = function(_self, ply, def)
             return os.time();
+        end
+    };
+
+    bash.reg.addVar{
+        ID = "LoginTime",
+        Type = "number",
+        Default = 0,
+        IsPublic = true,
+        OnRegister = function(_self, ply, def)
+            return os.time();
+        end
+    };
+
+    bash.reg.addVar{
+        ID = "Country",
+        Type = "string",
+        Default = "UK",
+        IsPublic = true,
+        OnGenerateCL = function(_self, def)
+            bash.reg.addPreData("Country", system.GetCountry());
+        end,
+        OnRegister = function(_self, ply, def)
+            return ply:GetPreData("Country") or def;
         end
     };
 
@@ -537,12 +613,12 @@ do -- For server refreshes.
 
     bash.reg.addVar{
         ID = "CharData",
-        Type = "string",
-        Default = pon.encode({}),
+        Type = "table",
+        Default = EMPTY_TAB,
         OnRegister = function(_self, ply, def)
             if checkply(ply) then
                 return ply:GetSQLData("bash_chars");
-            else return def; end
+            else return {}; end
         end
     };
 

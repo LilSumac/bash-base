@@ -5,6 +5,9 @@ CHARMENU.BGColor = CHARMENU.BGColor or Color(20, 20, 20, 0);
 CHARMENU.Alpha = CHARMENU.Alpha or 0;
 CHARMENU.SubMenu = CHARMENU.SubMenu or nil;
 
+-- Micro-optimizations.
+local cam_End3D, cam_Start3D, _Color, _CurTime, draw_SimpleText, _HSVToColor, _LerpLim, math_Clamp, _RealTime, surface_DrawLine, surface_DrawOutlinedRect, surface_DrawRect, surface_DrawTexturedRect, surface_DrawTexturedRectUV, surface_SetDrawColor, surface_SetMaterial = cam.End3D, cam.Start3D, Color, CurTime, draw.SimpleText, HSVToColor, LerpLim, math.Clamp, RealTime, surface.DrawLine, surface.DrawOutlinedRect, surface.DrawRect, surface.DrawTexturedRect, surface.DrawTexturedRectUV, surface.SetDrawColor, surface.SetMaterial;
+
 -- Materials.
 local gradH = getMaterial("gui/gradient");
 local gradV = getMaterial("gui/gradient_down");
@@ -25,12 +28,12 @@ function CHARMENU:Paint(w, h)
     if self.State == "Entering" then
 
     else
-        self.BGColor.a = LerpLim(0.02, self.BGColor.a, 240, 1);
-        self.Alpha = LerpLim(0.02, self.Alpha, 255, 1);
+        self.BGColor.a = _LerpLim(0.02, self.BGColor.a, 240, 1);
+        self.Alpha = _LerpLim(0.02, self.Alpha, 255, 1);
     end
 
-    surface.SetDrawColor(self.BGColor);
-    surface.DrawRect(0, 0, w, h);
+    surface_SetDrawColor(self.BGColor);
+    surface_DrawRect(0, 0, w, h);
 end
 
 function CHARMENU:CreateMenu()
@@ -88,39 +91,39 @@ function CHARMENU:CreateMenu()
     sub.Header = vgui.Create("EditablePanel", sub);
     sub.Header:SetSize(width, SCRH * 0.1);
     sub.Header.Paint = function(_self, w, h)
-        surface.SetDrawColor(Color(0, 0, 0, self.Alpha));
-        surface.DrawRect(0, 0, w, h);
+        surface_SetDrawColor(_Color(0, 0, 0, self.Alpha));
+        surface_DrawRect(0, 0, w, h);
 
-        local time = CurTime() * 10;
-        local colorL = HSVToColor(time % 360, 0.5, 0.5);
-        local colorT = HSVToColor((time + 30) % 360, 0.5, 0.5);
-        local colorR = HSVToColor((time + 60) % 360, 0.5, 0.5);
-        local colorB = HSVToColor((time + 90) % 360, 0.5, 0.5);
+        local time = _CurTime() * 10;
+        local colorL = _HSVToColor(time % 360, 0.5, 0.5);
+        local colorT = _HSVToColor((time + 30) % 360, 0.5, 0.5);
+        local colorR = _HSVToColor((time + 60) % 360, 0.5, 0.5);
+        local colorB = _HSVToColor((time + 90) % 360, 0.5, 0.5);
         colorL.a = self.Alpha;
         colorT.a = self.Alpha;
         colorR.a = self.Alpha;
         colorB.a = self.Alpha;
 
-        surface.SetMaterial(gradH);
-        surface.SetDrawColor(colorL);
-        surface.DrawTexturedRect(1, 1, w - 2, h - 2);
+        surface_SetMaterial(gradH);
+        surface_SetDrawColor(colorL);
+        surface_DrawTexturedRect(1, 1, w - 2, h - 2);
 
-        surface.SetMaterial(gradH);
-        surface.SetDrawColor(colorR);
-        surface.DrawTexturedRectUV(1, 1, w - 2, h - 2, 1, 0, 0, 1);
+        surface_SetMaterial(gradH);
+        surface_SetDrawColor(colorR);
+        surface_DrawTexturedRectUV(1, 1, w - 2, h - 2, 1, 0, 0, 1);
 
-        surface.SetMaterial(gradV);
-        surface.SetDrawColor(colorT);
-        surface.DrawTexturedRect(1, 1, w - 2, h - 2);
+        surface_SetMaterial(gradV);
+        surface_SetDrawColor(colorT);
+        surface_DrawTexturedRect(1, 1, w - 2, h - 2);
 
-        surface.SetMaterial(gradV);
-        surface.SetDrawColor(colorB);
-        surface.DrawTexturedRectUV(1, 1, w - 2, h - 2, 0, 1, 1, 0);
+        surface_SetMaterial(gradV);
+        surface_SetDrawColor(colorB);
+        surface_DrawTexturedRectUV(1, 1, w - 2, h - 2, 0, 1, 1, 0);
 
-        draw.SimpleText(
+        draw_SimpleText(
             (SCHEMA and SCHEMA.Name) or "/bash/",
             "bash-light-24", w / 2, h / 2,
-            Color(255, 255, 255, self.Alpha),
+            _Color(255, 255, 255, self.Alpha),
             TEXT_CENT, TEXT_CENT
         );
     end
@@ -129,13 +132,13 @@ function CHARMENU:CreateMenu()
     local charHeader = sub.CharHeader;
     charHeader:SetSize(width, 28)
     charHeader.Paint = function(_self, w, h)
-        surface.SetDrawColor(Color(0, 0, 0, self.Alpha));
-        surface.DrawRect(0, 0, w, h);
+        surface_SetDrawColor(_Color(0, 0, 0, self.Alpha));
+        surface_DrawRect(0, 0, w, h);
 
-        local time = CurTime() * 10;
-        local col = HSVToColor((time + 90) % 360, 0.5, 0.5);
+        local time = _CurTime() * 10;
+        local col = _HSVToColor((time + 90) % 360, 0.5, 0.5);
         col.a = self.Alpha;
-        draw.SimpleText(
+        draw_SimpleText(
             "Characters",
             "bash-regular-24", 6, h / 2,
             col,
@@ -148,26 +151,26 @@ function CHARMENU:CreateMenu()
     createChar:SetSize(width, 28);
     createChar:SetText("");
     createChar.Paint = function(_self, w, h)
-        local time = CurTime() * 10;
-        local col = HSVToColor((time + 90) % 360, 0.5, 0.5);
+        local time = _CurTime() * 10;
+        local col = _HSVToColor((time + 90) % 360, 0.5, 0.5);
         col.a = self.BGColor.a;
         if _self:IsHovered() then
             col.r = col.r + 30;
             col.g = col.g + 30;
             col.b = col.b + 30;
         end
-        surface.SetDrawColor(col);
-        surface.DrawRect(0, 0, w, h);
+        surface_SetDrawColor(col);
+        surface_DrawRect(0, 0, w, h);
 
-        draw.SimpleText(
+        draw_SimpleText(
             "Create Character",
             "bash-regular-24", 6, h / 2,
-            (_self:IsHovered() and Color(200, 200, 200, self.Alpha)) or Color(255, 255, 255, self.Alpha),
+            (_self:IsHovered() and _Color(200, 200, 200, self.Alpha)) or _Color(255, 255, 255, self.Alpha),
             TEXT_LEFT, TEXT_CENT
         );
 
-        surface.SetDrawColor(Color(0, 0, 0, self.BGColor.a));
-        surface.DrawOutlinedRect(0, 0, w, h);
+        surface_SetDrawColor(_Color(0, 0, 0, self.BGColor.a));
+        surface_DrawOutlinedRect(0, 0, w, h);
     end
     createChar.DoClick = function(_self)
         if checkpanel(self.Viewport) then
@@ -192,26 +195,26 @@ function CHARMENU:CreateMenu()
         close:SetSize(width, 28);
         close:SetText("");
         close.Paint = function(_self, w, h)
-            local time = CurTime() * 10;
-            local col = HSVToColor((time + 90) % 360, 0.5, 0.5);
+            local time = _CurTime() * 10;
+            local col = _HSVToColor((time + 90) % 360, 0.5, 0.5);
             col.a = self.BGColor.a;
             if _self:IsHovered() then
                 col.r = col.r + 30;
                 col.g = col.g + 30;
                 col.b = col.b + 30;
             end
-            surface.SetDrawColor(col);
-            surface.DrawRect(0, 0, w, h);
+            surface_SetDrawColor(col);
+            surface_DrawRect(0, 0, w, h);
 
             draw.SimpleText(
                 "Close",
                 "bash-regular-24", 6, h / 2,
-                (_self:IsHovered() and Color(200, 200, 200, self.Alpha)) or Color(255, 255, 255, self.Alpha),
+                (_self:IsHovered() and _Color(200, 200, 200, self.Alpha)) or _Color(255, 255, 255, self.Alpha),
                 TEXT_LEFT, TEXT_CENT
             );
 
-            surface.SetDrawColor(Color(0, 0, 0, self.BGColor.a));
-            surface.DrawOutlinedRect(0, -1, w, h + 1);
+            surface_SetDrawColor(_Color(0, 0, 0, self.BGColor.a));
+            surface_DrawOutlinedRect(0, -1, w, h + 1);
         end
         close.DoClick = function(_self)
             self:Remove();
@@ -223,26 +226,26 @@ function CHARMENU:CreateMenu()
     disconnect:SetSize(width, 28);
     disconnect:SetText("");
     disconnect.Paint = function(_self, w, h)
-        local time = CurTime() * 10;
-        local col = HSVToColor((time + 90) % 360, 0.5, 0.5);
+        local time = _CurTime() * 10;
+        local col = _HSVToColor((time + 90) % 360, 0.5, 0.5);
         col.a = self.BGColor.a;
         if _self:IsHovered() then
             col.r = col.r + 30;
             col.g = col.g + 30;
             col.b = col.b + 30;
         end
-        surface.SetDrawColor(col);
-        surface.DrawRect(0, 0, w, h);
+        surface_SetDrawColor(col);
+        surface_DrawRect(0, 0, w, h);
 
-        draw.SimpleText(
+        draw_SimpleText(
             "Disconnect",
             "bash-regular-24", 6, h / 2,
-            (_self:IsHovered() and Color(200, 200, 200, self.Alpha)) or Color(255, 255, 255, self.Alpha),
+            (_self:IsHovered() and _Color(200, 200, 200, self.Alpha)) or _Color(255, 255, 255, self.Alpha),
             TEXT_LEFT, TEXT_CENT
         );
 
-        surface.SetDrawColor(Color(0, 0, 0, self.BGColor.a));
-        surface.DrawOutlinedRect(0, -1, w, h + 1);
+        surface_SetDrawColor(_Color(0, 0, 0, self.BGColor.a));
+        surface_DrawOutlinedRect(0, -1, w, h + 1);
     end
     disconnect.DoClick = function(_self)
         RunConsoleCommand("disconnect");
@@ -254,26 +257,26 @@ function CHARMENU:CreateMenu()
     back:SetSize(width, 28);
     back:SetText("");
     back.Paint = function(_self, w, h)
-        local time = CurTime() * 10;
-        local col = HSVToColor((time + 90) % 360, 0.5, 0.5);
+        local time = _CurTime() * 10;
+        local col = _HSVToColor((time + 90) % 360, 0.5, 0.5);
         col.a = self.BGColor.a;
         if _self:IsHovered() then
             col.r = col.r + 30;
             col.g = col.g + 30;
             col.b = col.b + 30;
         end
-        surface.SetDrawColor(col);
-        surface.DrawRect(0, 0, w, h);
+        surface_SetDrawColor(col);
+        surface_DrawRect(0, 0, w, h);
 
-        draw.SimpleText(
+        draw_SimpleText(
             "Back",
             "bash-regular-24", 6, h / 2,
-            (_self:IsHovered() and Color(200, 200, 200, self.Alpha)) or Color(255, 255, 255, self.Alpha),
+            (_self:IsHovered() and _Color(200, 200, 200, self.Alpha)) or _Color(255, 255, 255, self.Alpha),
             TEXT_LEFT, TEXT_CENT
         );
 
-        surface.SetDrawColor(Color(0, 0, 0, self.BGColor.a));
-        surface.DrawOutlinedRect(0, 0, w, h);
+        surface_SetDrawColor(_Color(0, 0, 0, self.BGColor.a));
+        surface_DrawOutlinedRect(0, 0, w, h);
     end
     back.DoClick = function(_self)
         if checkpanel(self.Viewport) then
@@ -320,14 +323,14 @@ function CHARMENU:CreateViewport()
     port.Paint = function(_self, w, h)
         if !_self.CurScene then return; end
 
-        draw.SimpleText(
+        draw_SimpleText(
             _self.CharData.CharName, "bash-regular-36",
-            w / 2, 6, Color(200, 200, 200), TEXT_CENT, TEXT_TOP
+            w / 2, 6, _Color(200, 200, 200), TEXT_CENT, TEXT_TOP
         );
 
-        last = last or RealTime();
+        last = last or _RealTime();
         local x, y = _self:LocalToScreen(0, 0);
-        cam.Start3D(
+        cam_Start3D(
             _self.CurScene.CamData.Pos,
             _self.CurScene.CamData.Ang,
             _self.CurScene.CamData.FOV,
@@ -341,11 +344,11 @@ function CHARMENU:CreateViewport()
                     ent:Think();
                 end
             end
-        cam.End3D();
-        last = RealTime();
+        cam_End3D();
+        last = _RealTime();
 
-        surface.SetDrawColor(Color(200, 200, 200));
-        surface.DrawOutlinedRect(0, 0, w, h);
+        surface_SetDrawColor(_Color(200, 200, 200));
+        surface_DrawOutlinedRect(0, 0, w, h);
     end
 
     local portX, portY = port:GetPos();
@@ -356,9 +359,9 @@ function CHARMENU:CreateViewport()
     del:SetDrawText("Delete");
     del:SetPos(portX + 6, portY + port:GetTall() + 6);
     del.Think = function(_self)
-        _self:SetTextColor(Color(255, 255, 255, self.Alpha));
-        _self:SetHoverColor(Color(200, 200, 200, self.Alpha));
-        _self:SetDisabledColor(Color(100, 100, 100, self.Alpha));
+        _self:SetTextColor(_Color(255, 255, 255, self.Alpha));
+        _self:SetHoverColor(_Color(200, 200, 200, self.Alpha));
+        _self:SetDisabledColor(_Color(100, 100, 100, self.Alpha));
     end
     del.SetChar = function(_self, id)
         if !id then _self:SetEnabled(false); return; end
@@ -376,9 +379,9 @@ function CHARMENU:CreateViewport()
     load:SetPos(portX + port:GetWide() - load:GetWide() - 6, portY + port:GetTall() + 6);
     load:SetRightAligned(true);
     load.Think = function(_self)
-        _self:SetTextColor(Color(255, 255, 255, self.Alpha));
-        _self:SetHoverColor(Color(200, 200, 200, self.Alpha));
-        _self:SetDisabledColor(Color(100, 100, 100, self.Alpha));
+        _self:SetTextColor(_Color(255, 255, 255, self.Alpha));
+        _self:SetHoverColor(_Color(200, 200, 200, self.Alpha));
+        _self:SetDisabledColor(_Color(100, 100, 100, self.Alpha));
     end
     load.SetChar = function(_self, id)
         if !id then _self:SetEnabled(false); return; end
@@ -464,12 +467,12 @@ function CHARMENU:CreateOutfitter()
         local areaX = margin;
         local areaY = h * 0.15;
         for index, stage in ipairs(_self:GetParent().Stages) do
-            draw.RoundedBox(8, areaX, areaY, boxSize, boxSize, Color(40 * index, 255, 255));
+            draw_RoundedBox(8, areaX, areaY, boxSize, boxSize, _Color(40 * index, 255, 255));
             areaX = areaX + boxSize + margin;
         end
 
-        surface.SetDrawColor(Color(200, 200, 200));
-        surface.DrawLine(0, h - 1, w - 1, h - 1);
+        surface_SetDrawColor(_Color(200, 200, 200));
+        surface_DrawLine(0, h - 1, w - 1, h - 1);
     end
 
     --[[
@@ -541,12 +544,12 @@ function CHARMENU:UpdateCharacters()
         button = sub.CharButtons[#sub.CharButtons];
         button:SetSize(width, 28);
         button.Paint = function(_self, w, h)
-            surface.SetDrawColor(Color(0, 0, 0, math.Clamp(self.BGColor.a - 50, 0, 255)));
-            surface.DrawRect(0, 0, w, h);
-            draw.SimpleText(
+            surface_SetDrawColor(_Color(0, 0, 0, math_Clamp(self.BGColor.a - 50, 0, 255)));
+            surface_DrawRect(0, 0, w, h);
+            draw_SimpleText(
                 "None.",
                 "bash-regular-24", 6, h / 2,
-                Color(255, 255, 255, self.Alpha),
+                _Color(255, 255, 255, self.Alpha),
                 TEXT_LEFT, TEXT_CENT
             );
         end
@@ -560,32 +563,32 @@ function CHARMENU:UpdateCharacters()
             button.CharData = char;
             button.Paint = function(_self, w, h)
                 if _self:IsHovered() then
-                    surface.SetDrawColor(Color(30, 30, 30, math.Clamp(self.BGColor.a - 50, 0, 255)));
+                    surface_SetDrawColor(_Color(30, 30, 30, math_Clamp(self.BGColor.a - 50, 0, 255)));
                 else
-                    surface.SetDrawColor(Color(0, 0, 0, math.Clamp(self.BGColor.a - 50, 0, 255)));
+                    surface_SetDrawColor(_Color(0, 0, 0, math_Clamp(self.BGColor.a - 50, 0, 255)));
                 end
 
-                surface.DrawRect(0, 0, w, h);
-                draw.SimpleText(
+                surface_DrawRect(0, 0, w, h);
+                draw_SimpleText(
                     (_self.CharData and _self.CharData.CharName) or "...",
                     "bash-regular-24", 6, h / 2,
-                    (_self:IsHovered() and Color(200, 200, 200, self.Alpha)) or Color(255, 255, 255, self.Alpha),
+                    (_self:IsHovered() and _Color(200, 200, 200, self.Alpha)) or _Color(255, 255, 255, self.Alpha),
                     TEXT_LEFT, TEXT_CENT
                 );
             end
             button.DoClick = function(_self)
                 if checkpanel(self.Viewport) and _self.CharData then
-                    local charID = LocalPlayer():GetNetVar("CharID");
+                    local char = LocalPlayer():GetCharacter();
 
                     if checkpanel(self.Viewport.DeleteButton) then
                         self.Viewport.DeleteButton:SetVisible(true);
                         self.Viewport.DeleteButton:SetChar(_self.CharData.CharID);
-                        self.Viewport.DeleteButton:SetEnabled(charID != _self.CharData.CharID);
+                        self.Viewport.DeleteButton:SetEnabled(!char or char:GetID() != _self.CharData.CharID);
                     end
                     if checkpanel(self.Viewport.LoadButton) then
                         self.Viewport.LoadButton:SetVisible(true);
                         self.Viewport.LoadButton:SetChar(_self.CharData.CharID);
-                        self.Viewport.LoadButton:SetEnabled(charID != _self.CharData.CharID);
+                        self.Viewport.LoadButton:SetEnabled(!char or char:GetID() != _self.CharData.CharID);
                     end
                     self.Viewport:SetChar(_self.Index, _self.CharData);
                 end

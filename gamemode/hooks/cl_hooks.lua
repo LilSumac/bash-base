@@ -28,3 +28,18 @@ hook.Add("HUDPaint", "BASH_HandleResChange", function()
         resChanged = false;
     end
 end);
+
+--
+-- Network Hooks
+--
+vnet.Watch("util_progress", function(pck)
+	local msg = pck:String();
+	local done = pck:Bool();
+	bash.progress = msg;
+	MsgCon(color_green, msg);
+
+	if done then
+		LocalPlayer().Initialized = true;
+		MsgCon(color_green, "All done!");
+	end
+end);
